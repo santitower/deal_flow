@@ -1,0 +1,204 @@
+{
+    "name": "Automation_Call_Outcome_Router",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "hubspot-deal-update",
+                "responseMode": "lastNode",
+                "options": {}
+            },
+            "id": "webhook-trigger",
+            "name": "Webhook (HubSpot Trigger)",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{$json.body.properties.call_outcome.value}}",
+                            "operation": "equal",
+                            "value2": "no_answer"
+                        },
+                        {
+                            "value1": "={{$json.body.properties.call_outcome.value}}",
+                            "operation": "equal",
+                            "value2": "left_vm"
+                        }
+                    ]
+                },
+                "combineOperation": "any"
+            },
+            "id": "check-no-connect",
+            "name": "If: No Connect",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{$json.body.properties.call_outcome.value}}",
+                            "operation": "equal",
+                            "value2": "connected"
+                        }
+                    ]
+                }
+            },
+            "id": "check-connected",
+            "name": "If: Connected",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                450,
+                500
+            ]
+        },
+        {
+            "parameters": {
+                "authentication": "hubSpotDeveloperApiKey",
+                "resource": "deal",
+                "operation": "update",
+                "dealId": "={{$json.body.objectId}}",
+                "updateFields": {
+                    "dealstage": "attempted___no_connect"
+                }
+            },
+            "id": "update-stage-no-connect",
+            "name": "Update Stage: No Connect",
+            "type": "n8n-nodes-base.hubspot",
+            "typeVersion": 1,
+            "position": [
+                650,
+                200
+            ],
+            "credentials": {
+                "hubSpotDeveloperApiKey": {
+                    "id": "YOUR_CREDENTIAL_ID",
+                    "name": "HubSpot Account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "authentication": "hubSpotDeveloperApiKey",
+                "resource": "deal",
+                "operation": "update",
+                "dealId": "={{$json.body.objectId}}",
+                "updateFields": {
+                    "dealstage": "connected___working"
+                }
+            },
+            "id": "update-stage-connected",
+            "name": "Update Stage: Connected",
+            "type": "n8n-nodes-base.hubspot",
+            "typeVersion": 1,
+            "position": [
+                650,
+                450
+            ],
+            "credentials": {
+                "hubSpotDeveloperApiKey": {
+                    "id": "YOUR_CREDENTIAL_ID",
+                    "name": "HubSpot Account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "authentication": "hubSpotDeveloperApiKey",
+                "resource": "engagement",
+                "operation": "create",
+                "type": "task",
+                "metadata": {
+                    "body": "Follow up with lead - they answered!",
+                    "status": "NOT_STARTED",
+                    "subject": "Follow Up Task"
+                },
+                "associations": {
+                    "dealIds": [
+                        "={{$json.body.objectId}}"
+                    ]
+                }
+            },
+            "id": "create-task",
+            "name": "Create Task: Follow Up",
+            "type": "n8n-nodes-base.hubspot",
+            "typeVersion": 1,
+            "position": [
+                850,
+                450
+            ],
+            "credentials": {
+                "hubSpotDeveloperApiKey": {
+                    "id": "YOUR_CREDENTIAL_ID",
+                    "name": "HubSpot Account"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Webhook (HubSpot Trigger)": {
+            "main": [
+                [
+                    {
+                        "node": "If: No Connect",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "If: No Connect": {
+            "main": [
+                [
+                    {
+                        "node": "Update Stage: No Connect",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "If: Connected",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "If: Connected": {
+            "main": [
+                [
+                    {
+                        "node": "Update Stage: Connected",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Update Stage: Connected": {
+            "main": [
+                [
+                    {
+                        "node": "Create Task: Follow Up",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

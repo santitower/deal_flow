@@ -1,0 +1,19 @@
+# General
+.DS_Store
+Thumbs.db
+*.log
+
+# Environment variables
+.env
+
+# Node
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# n8n
+n8n_data/

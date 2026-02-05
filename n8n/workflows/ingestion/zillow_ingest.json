@@ -1,0 +1,142 @@
+{
+    "name": "Ingestion_Zillow_Gmail",
+    "nodes": [
+        {
+            "parameters": {
+                "pollTimes": {
+                    "item": [
+                        {
+                            "mode": "everyMinute"
+                        }
+                    ]
+                },
+                "filters": {
+                    "sender": "no-reply@zillow.com",
+                    "subject": "New matches"
+                },
+                "format": "resolved"
+            },
+            "id": "gmail-trigger",
+            "name": "Gmail Trigger",
+            "type": "n8n-nodes-base.gmailTrigger",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ],
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "YOUR_GMAIL_CREDENTIALS",
+                    "name": "Gmail Account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Email Parsing Logic\n// Extracts standard Zillow email format data\n\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const body = item.json.text || item.json.snippet || '';\n  \n  // Regex Patterns (Heuristic examples - would need tuning based on actual email)\n  // Example: \"$350,000 | 123 Main St, Springfield, IL\"\n  const priceMatch = body.match(/\\$[0-9,]+/);\n  const urlMatch = body.match(/https:\\/\\/www\\.zillow\\.com\\/homedetails\\/[^\\s\\\"'>]+/);\n  const addressMatch = body.match(/\\|\\s+([^\\n]+)/); // Very simple heuristic\n\n  if (urlMatch) {\n    results.push({\n      json: {\n        source: 'Zillow',\n        price: priceMatch ? Number(priceMatch[0].replace(/[^0-9.]/g, '')) : 0,\n        listing_url: urlMatch[0],\n        // Assuming partial address parsing or using subject line in real implementation\n        address: item.json.subject.replace('New matches for ', '') || 'Unknown Address',\n        description: item.json.snippet\n      }\n    });\n  }\n}\n\nreturn results;"
+            },
+            "id": "parse-email",
+            "name": "Parse Email Body",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                450,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "workflowId": "Deal_Normalization_Canonical"
+            },
+            "id": "call-normalization",
+            "name": "Execute Normalization",
+            "type": "n8n-nodes-base.executeWorkflow",
+            "typeVersion": 1,
+            "position": [
+                650,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "authentication": "hubSpotDeveloperApiKey",
+                "resource": "deal",
+                "operation": "create",
+                "resolveData": true,
+                "additionalFields": {
+                    "properties": [
+                        {
+                            "property": "dealname",
+                            "value": "={{$json.properties.address}}"
+                        },
+                        {
+                            "property": "dealstage",
+                            "value": "appointmentscheduled"
+                        },
+                        {
+                            "property": "amount",
+                            "value": "={{$json.properties.estimated_arv}} || {{$json.properties.list_price}}"
+                        },
+                        {
+                            "property": "deal_key",
+                            "value": "={{$json.properties.deal_key}}"
+                        },
+                        {
+                            "property": "listing_url",
+                            "value": "={{$json.properties.listing_url}}"
+                        }
+                    ]
+                }
+            },
+            "id": "upsert-hubspot",
+            "name": "HubSpot: Create Deal",
+            "type": "n8n-nodes-base.hubspot",
+            "typeVersion": 1,
+            "position": [
+                850,
+                300
+            ],
+            "credentials": {
+                "hubSpotDeveloperApiKey": {
+                    "id": "YOUR_CREDENTIAL_ID",
+                    "name": "HubSpot Account"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Gmail Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Email Body",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Email Body": {
+            "main": [
+                [
+                    {
+                        "node": "Execute Normalization",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Execute Normalization": {
+            "main": [
+                [
+                    {
+                        "node": "HubSpot: Create Deal",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

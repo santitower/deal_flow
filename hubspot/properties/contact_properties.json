@@ -1,0 +1,40 @@
+{
+    "groups": [
+        {
+            "name": "wholesale_contact_info",
+            "displayName": "Wholesale Contact Info",
+            "properties": [
+                {
+                    "name": "contact_role",
+                    "label": "Contact Role",
+                    "type": "enumeration",
+                    "fieldType": "select",
+                    "options": [
+                        {
+                            "label": "Owner",
+                            "value": "owner"
+                        },
+                        {
+                            "label": "Listing Agent",
+                            "value": "listing_agent"
+                        },
+                        {
+                            "label": "Wholesaler",
+                            "value": "wholesaler"
+                        },
+                        {
+                            "label": "Property Manager",
+                            "value": "property_manager"
+                        }
+                    ]
+                },
+                {
+                    "name": "brokerage_name",
+                    "label": "Brokerage Name",
+                    "type": "string",
+                    "fieldType": "text"
+                }
+            ]
+        }
+    ]
+}

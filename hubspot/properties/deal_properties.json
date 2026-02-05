@@ -1,0 +1,47 @@
+{
+  "groups": [
+    {
+      "name": "wholesale_deal_data",
+      "displayName": "Wholesale Deal Data",
+      "properties": [
+        {
+          "name": "deal_key",
+          "label": "Deal Key",
+          "type": "string",
+          "fieldType": "text",
+          "description": "Unique identifier for deduplication (Address + Zip)"
+        },
+        {
+          "name": "source_system",
+          "label": "Source System",
+          "type": "enumeration",
+          "fieldType": "select",
+          "options": [
+            { "label": "PropStream", "value": "PropStream" },
+            { "label": "Zillow", "value": "Zillow" }
+          ]
+        },
+        {
+          "name": "estimated_arv",
+          "label": "Estimated ARV",
+          "type": "number",
+          "fieldType": "number",
+          "format": "currency"
+        },
+        {
+          "name": "call_outcome",
+          "label": "Call Outcome",
+          "type": "enumeration",
+          "fieldType": "select",
+          "options": [
+            { "label": "No Answer", "value": "no_answer" },
+            { "label": "Left VM", "value": "left_vm" },
+            { "label": "Connected", "value": "connected" },
+            { "label": "Wrong Number", "value": "wrong_number" },
+            { "label": "Do Not Contact", "value": "dnc" }
+          ]
+        }
+      ]
+    }
+  ]
+}
