@@ -13,7 +13,7 @@
             "type": "n8n-nodes-base.webhook",
             "typeVersion": 1,
             "position": [
-                250,
+                0,
                 300
             ]
         },
@@ -22,66 +22,104 @@
                 "conditions": {
                     "string": [
                         {
-                            "value1": "={{$json.body.properties.call_outcome.value}}",
+                            "value1": "={{$json.body.properties.automation_queue.value}}",
                             "operation": "equal",
-                            "value2": "no_answer"
-                        },
-                        {
-                            "value1": "={{$json.body.properties.call_outcome.value}}",
-                            "operation": "equal",
-                            "value2": "left_vm"
-                        }
-                    ]
-                },
-                "combineOperation": "any"
-            },
-            "id": "check-no-connect",
-            "name": "If: No Connect",
-            "type": "n8n-nodes-base.if",
-            "typeVersion": 1,
-            "position": [
-                450,
-                300
-            ]
-        },
-        {
-            "parameters": {
-                "conditions": {
-                    "string": [
-                        {
-                            "value1": "={{$json.body.properties.call_outcome.value}}",
-                            "operation": "equal",
-                            "value2": "connected"
+                            "value2": "queue"
                         }
                     ]
                 }
             },
-            "id": "check-connected",
-            "name": "If: Connected",
+            "id": "filter-queue",
+            "name": "If: Is Queued?",
             "type": "n8n-nodes-base.if",
             "typeVersion": 1,
             "position": [
-                450,
-                500
+                200,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const body = $node[\"Webhook (HubSpot Trigger)\"].json.body;\nconst outcome = body.properties.call_outcome?.value || '';\nconst manualDate = body.properties.follow_up_date?.value;\n\nlet dueDate = new Date();\n\nif (manualDate) {\n  dueDate = new Date(manualDate);\n} else {\n  if (outcome === 'no_answer' || outcome === 'left_vm') {\n    dueDate.setDate(dueDate.getDate() + 1); // 24h follow up\n  } else if (outcome === 'not_interested') {\n    dueDate.setDate(dueDate.getDate() + 90); // 90 day recircle\n  } else if (outcome === 'not_a_good_time') {\n    dueDate.setDate(dueDate.getDate() + 3); // 3 day follow up\n  } else if (outcome === 'hot') {\n    dueDate.setHours(dueDate.getHours() + 1); // Immediate/1h task\n  }\n}\n\nreturn {\n  outcome: outcome,\n  due_date: dueDate.toISOString(),\n  object_id: body.objectId,\n  address: body.properties.dealname?.value || 'Unknown Address'\n};"
+            },
+            "id": "prepare-logic",
+            "name": "Prepare Logic & Dates",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                400,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "dataType": "string",
+                "value1": "={{$json.outcome}}",
+                "rules": {
+                    "rules": [
+                        {
+                            "operation": "contains",
+                            "value2": "no_answer",
+                            "output": 0
+                        },
+                        {
+                            "operation": "contains",
+                            "value2": "left_vm",
+                            "output": 0
+                        },
+                        {
+                            "operation": "equal",
+                            "value2": "not_interested",
+                            "output": 1
+                        },
+                        {
+                            "operation": "equal",
+                            "value2": "not_a_good_time",
+                            "output": 2
+                        },
+                        {
+                            "operation": "equal",
+                            "value2": "hot",
+                            "output": 3
+                        }
+                    ]
+                },
+                "fallbackOutput": 4
+            },
+            "id": "outcome-switch",
+            "name": "Switch: Outcome",
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 1,
+            "position": [
+                600,
+                300
             ]
         },
         {
             "parameters": {
                 "authentication": "hubSpotApi",
-                "resource": "deal",
-                "operation": "update",
-                "dealId": "={{$json.body.objectId}}",
-                "updateFields": {
-                    "dealstage": "attempted___no_connect"
+                "resource": "engagement",
+                "operation": "create",
+                "type": "task",
+                "metadata": {
+                    "body": "Call back: Missed connection. Prompt follow-up scheduled.",
+                    "status": "NOT_STARTED",
+                    "subject": "={{'Follow Up: ' + $json.address}}",
+                    "completionDate": "={{$json.due_date}}"
+                },
+                "associations": {
+                    "dealIds": [
+                        "={{$json.object_id}}"
+                    ]
                 }
             },
-            "id": "update-stage-no-connect",
-            "name": "Update Stage: No Connect",
+            "id": "task-missed-call",
+            "name": "Task: Missed Call",
             "type": "n8n-nodes-base.hubspot",
             "typeVersion": 1,
             "position": [
-                650,
-                200
+                850,
+                150
             ],
             "credentials": {
                 "hubSpotApi": {
@@ -93,19 +131,60 @@
         {
             "parameters": {
                 "authentication": "hubSpotApi",
-                "resource": "deal",
-                "operation": "update",
-                "dealId": "={{$json.body.objectId}}",
-                "updateFields": {
-                    "dealstage": "connected___working"
+                "resource": "engagement",
+                "operation": "create",
+                "type": "task",
+                "metadata": {
+                    "body": "Recircle: Lead was not interested 90 days ago. Re-check motivation.",
+                    "status": "NOT_STARTED",
+                    "subject": "={{'Recircle: ' + $json.address}}",
+                    "completionDate": "={{$json.due_date}}"
+                },
+                "associations": {
+                    "dealIds": [
+                        "={{$json.object_id}}"
+                    ]
                 }
             },
-            "id": "update-stage-connected",
-            "name": "Update Stage: Connected",
+            "id": "task-not-interested",
+            "name": "Task: 90-Day Recircle",
             "type": "n8n-nodes-base.hubspot",
             "typeVersion": 1,
             "position": [
-                650,
+                850,
+                300
+            ],
+            "credentials": {
+                "hubSpotApi": {
+                    "id": "YOUR_CREDENTIAL_ID",
+                    "name": "HubSpot Account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "authentication": "hubSpotApi",
+                "resource": "engagement",
+                "operation": "create",
+                "type": "task",
+                "metadata": {
+                    "body": "Follow up: Timing was bad during last call. interest level is warm.",
+                    "status": "NOT_STARTED",
+                    "subject": "={{'Follow Up (Better Timing): ' + $json.address}}",
+                    "completionDate": "={{$json.due_date}}"
+                },
+                "associations": {
+                    "dealIds": [
+                        "={{$json.object_id}}"
+                    ]
+                }
+            },
+            "id": "task-not-a-good-time",
+            "name": "Task: Better Timing",
+            "type": "n8n-nodes-base.hubspot",
+            "typeVersion": 1,
+            "position": [
+                850,
                 450
             ],
             "credentials": {
@@ -122,23 +201,49 @@
                 "operation": "create",
                 "type": "task",
                 "metadata": {
-                    "body": "Follow up with lead - they answered!",
+                    "body": "URGENT: Hot prospect. Capitalize on motivation immediately.",
                     "status": "NOT_STARTED",
-                    "subject": "Follow Up Task"
+                    "subject": "={{'PRIORITY CLOSE: ' + $json.address}}",
+                    "completionDate": "={{$json.due_date}}"
                 },
                 "associations": {
                     "dealIds": [
-                        "={{$json.body.objectId}}"
+                        "={{$json.object_id}}"
                     ]
                 }
             },
-            "id": "create-task",
-            "name": "Create Task: Follow Up",
+            "id": "task-hot-lead",
+            "name": "Task: HOT LEAD",
             "type": "n8n-nodes-base.hubspot",
             "typeVersion": 1,
             "position": [
                 850,
-                450
+                600
+            ],
+            "credentials": {
+                "hubSpotApi": {
+                    "id": "YOUR_CREDENTIAL_ID",
+                    "name": "HubSpot Account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "authentication": "hubSpotApi",
+                "resource": "deal",
+                "operation": "update",
+                "dealId": "={{$node[\"Prepare Logic & Dates\"].json.object_id}}",
+                "updateFields": {
+                    "automation_queue": "processed"
+                }
+            },
+            "id": "mark-processed",
+            "name": "Final: Mark Processed",
+            "type": "n8n-nodes-base.hubspot",
+            "typeVersion": 1,
+            "position": [
+                1150,
+                375
             ],
             "credentials": {
                 "hubSpotApi": {
@@ -153,47 +258,105 @@
             "main": [
                 [
                     {
-                        "node": "If: No Connect",
+                        "node": "If: Is Queued?",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "If: No Connect": {
+        "If: Is Queued?": {
             "main": [
                 [
                     {
-                        "node": "Update Stage: No Connect",
+                        "node": "Prepare Logic & Dates",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Logic & Dates": {
+            "main": [
+                [
+                    {
+                        "node": "Switch: Outcome",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Switch: Outcome": {
+            "main": [
+                [
+                    {
+                        "node": "Task: Missed Call",
                         "type": "main",
                         "index": 0
                     }
                 ],
                 [
                     {
-                        "node": "If: Connected",
+                        "node": "Task: 90-Day Recircle",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Task: Better Timing",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Task: HOT LEAD",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "If: Connected": {
+        "Task: Missed Call": {
             "main": [
                 [
                     {
-                        "node": "Update Stage: Connected",
+                        "node": "Final: Mark Processed",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "Update Stage: Connected": {
+        "Task: 90-Day Recircle": {
             "main": [
                 [
                     {
-                        "node": "Create Task: Follow Up",
+                        "node": "Final: Mark Processed",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Task: Better Timing": {
+            "main": [
+                [
+                    {
+                        "node": "Final: Mark Processed",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Task: HOT LEAD": {
+            "main": [
+                [
+                    {
+                        "node": "Final: Mark Processed",
                         "type": "main",
                         "index": 0
                     }
