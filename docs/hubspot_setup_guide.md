@@ -21,6 +21,9 @@ Go to **Settings > Properties > Contacts** tab. Create the following properties:
 | :--- | :--- | :--- | :--- |
 | **Contact Role** | `contact_role` | Wholesale Contact Info | **Dropdown select** <br>Options:<br>- Owner (`owner`)<br>- Listing Agent (`listing_agent`)<br>- Wholesaler (`wholesaler`)<br>- Property Manager (`property_manager`) |
 | **Brokerage Name** | `brokerage_name` | Wholesale Contact Info | Single-line text |
+| **Call Outcome** | `call_outcome` | Wholesale Contact Info | **Dropdown select** (No Answer, Warm, Hot, etc.) |
+| **Automation Queue** | `automation_queue` | Wholesale Contact Info | **Dropdown select** (Queue, Processed, etc.) |
+| **Follow-Up Date** | `follow_up_date` | Wholesale Contact Info | Date picker |
 
 ---
 
