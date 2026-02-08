@@ -67,7 +67,7 @@
         },
         {
             "parameters": {
-                "authentication": "hubSpotDeveloperApiKey",
+                "authentication": "hubSpotApi",
                 "resource": "deal",
                 "operation": "update",
                 "dealId": "={{$json.body.objectId}}",
@@ -84,7 +84,7 @@
                 200
             ],
             "credentials": {
-                "hubSpotDeveloperApiKey": {
+                "hubSpotApi": {
                     "id": "YOUR_CREDENTIAL_ID",
                     "name": "HubSpot Account"
                 }
@@ -92,7 +92,7 @@
         },
         {
             "parameters": {
-                "authentication": "hubSpotDeveloperApiKey",
+                "authentication": "hubSpotApi",
                 "resource": "deal",
                 "operation": "update",
                 "dealId": "={{$json.body.objectId}}",
@@ -109,7 +109,7 @@
                 450
             ],
             "credentials": {
-                "hubSpotDeveloperApiKey": {
+                "hubSpotApi": {
                     "id": "YOUR_CREDENTIAL_ID",
                     "name": "HubSpot Account"
                 }
@@ -117,7 +117,7 @@
         },
         {
             "parameters": {
-                "authentication": "hubSpotDeveloperApiKey",
+                "authentication": "hubSpotApi",
                 "resource": "engagement",
                 "operation": "create",
                 "type": "task",
@@ -141,7 +141,7 @@
                 450
             ],
             "credentials": {
-                "hubSpotDeveloperApiKey": {
+                "hubSpotApi": {
                     "id": "YOUR_CREDENTIAL_ID",
                     "name": "HubSpot Account"
                 }

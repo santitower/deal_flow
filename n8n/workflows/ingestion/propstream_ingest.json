@@ -81,7 +81,7 @@
         },
         {
             "parameters": {
-                "authentication": "hubSpotDeveloperApiKey",
+                "authentication": "hubSpotApi",
                 "resource": "deal",
                 "operation": "create",
                 "resolveData": true,
@@ -115,7 +115,7 @@
                 300
             ],
             "credentials": {
-                "hubSpotDeveloperApiKey": {
+                "hubSpotApi": {
                     "id": "YOUR_CREDENTIAL_ID",
                     "name": "HubSpot Account"
                 }

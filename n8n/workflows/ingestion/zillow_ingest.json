@@ -3,25 +3,42 @@
     "nodes": [
         {
             "parameters": {
-                "pollTimes": {
-                    "item": [
+                "rule": {
+                    "interval": [
                         {
-                            "mode": "everyMinute"
+                            "field": "minutes",
+                            "minutesInterval": 15
                         }
                     ]
-                },
-                "filters": {
-                    "sender": "no-reply@zillow.com",
-                    "subject": "New matches"
-                },
-                "format": "resolved"
+                }
             },
-            "id": "gmail-trigger",
-            "name": "Gmail Trigger",
-            "type": "n8n-nodes-base.gmailTrigger",
-            "typeVersion": 1,
+            "id": "schedule-trigger",
+            "name": "Schedule Trigger",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.1,
             "position": [
                 250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "limit": 20,
+                "simple": false,
+                "filters": {
+                    "q": "from:instant-updates@mail.zillow.com is:unread label:ZILLOW_UPDATES"
+                },
+                "options": {
+                    "includeSpamTrash": false
+                }
+            },
+            "id": "gmail-get",
+            "name": "Gmail: Get Unread",
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2,
+            "position": [
+                450,
                 300
             ],
             "credentials": {
@@ -33,25 +50,12 @@
         },
         {
             "parameters": {
-                "jsCode": "// Email Parsing Logic\n// Extracts standard Zillow email format data\n\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const body = item.json.text || item.json.snippet || '';\n  \n  // Regex Patterns (Heuristic examples - would need tuning based on actual email)\n  // Example: \"$350,000 | 123 Main St, Springfield, IL\"\n  const priceMatch = body.match(/\\$[0-9,]+/);\n  const urlMatch = body.match(/https:\\/\\/www\\.zillow\\.com\\/homedetails\\/[^\\s\\\"'>]+/);\n  const addressMatch = body.match(/\\|\\s+([^\\n]+)/); // Very simple heuristic\n\n  if (urlMatch) {\n    results.push({\n      json: {\n        source: 'Zillow',\n        price: priceMatch ? Number(priceMatch[0].replace(/[^0-9.]/g, '')) : 0,\n        listing_url: urlMatch[0],\n        // Assuming partial address parsing or using subject line in real implementation\n        address: item.json.subject.replace('New matches for ', '') || 'Unknown Address',\n        description: item.json.snippet\n      }\n    });\n  }\n}\n\nreturn results;"
+                "jsCode": "// Email Parsing Logic (Multi-Listing Digest Support)\n// Handles Zillow '10 Results for...' digest emails\n\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const body = item.json.text || item.json.snippet || '';\n  \n  // Split by the dash separator Zillow uses between listings\n  const chunks = body.split('------');\n\n  for (const chunk of chunks) {\n    // Clean up whitespace\n    const cleanChunk = chunk.trim();\n    if (cleanChunk.length < 50) continue; // Skip header/footer noise\n\n    // EXTRACT URL\n    // Looking for https://click.mail.zillow.com... that eventually goes to a property\n    // Zillow digest links are often wrapped or long, we grab the first http link in the chunk\n    const urlMatch = cleanChunk.match(/https:\\/\\/click\\.mail\\.zillow\\.com\\/[^\\s\\\"'>]+/);\n    \n    // EXTRACT PRICE\n    // Looks like: \"$25,000\"\n    const priceMatch = cleanChunk.match(/\\$[0-9,]{4,}/);\n\n    // EXTRACT ADDRESS\n    // In text version, it often appears after the stats line (bd | ba | sqft)\n    // Pattern:  \"3 bd | 1 ba | 1,906 sqft\\n\\n11775 Rossiter St, Detroit, MI\"\n    // We'll look for the address pattern roughly: Number Street, City, State\n    const addressMatch = cleanChunk.match(/\\n([0-9]+[^\\n]+(?:Ave|St|Rd|Ln|Dr|Cir|Blvd|Way)[^\\n]+, [A-Z]{2})/i);\n\n    if (urlMatch && priceMatch) {\n        results.push({\n            json: {\n                source: 'Zillow Digest',\n                price: Number(priceMatch[0].replace(/[^0-9.]/g, '')),\n                listing_url: urlMatch[0],\n                address: addressMatch ? addressMatch[1].trim() : 'Address Not Found',\n                description: cleanChunk.substring(0, 200) + '...',\n                email_subject: item.json.subject\n            }\n        });\n    }\n  }\n}\n\nif (results.length === 0) {\n    // Debug fallback if no listings found in any email\n    return [{\n        json: {\n            source: 'DEBUG',\n            error: 'No listings parsed',\n            body_sample: items[0]?.json.text?.substring(0, 500)\n        }\n    }];\n}\n\nreturn results;"
             },
             "id": "parse-email",
             "name": "Parse Email Body",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
-            "position": [
-                450,
-                300
-            ]
-        },
-        {
-            "parameters": {
-                "workflowId": "Deal_Normalization_Canonical"
-            },
-            "id": "call-normalization",
-            "name": "Execute Normalization",
-            "type": "n8n-nodes-base.executeWorkflow",
-            "typeVersion": 1,
             "position": [
                 650,
                 300
@@ -59,45 +63,48 @@
         },
         {
             "parameters": {
-                "authentication": "hubSpotDeveloperApiKey",
+                "workflowId": "Deal_Normalization_Canonical",
+                "mode": "once"
+            },
+            "id": "call-normalization",
+            "name": "Execute Normalization",
+            "type": "n8n-nodes-base.executeWorkflow",
+            "typeVersion": 1,
+            "position": [
+                850,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "authentication": "hubSpotApi",
                 "resource": "deal",
                 "operation": "create",
-                "resolveData": true,
-                "additionalFields": {
-                    "properties": [
-                        {
-                            "property": "dealname",
-                            "value": "={{$json.properties.address}}"
-                        },
-                        {
-                            "property": "dealstage",
-                            "value": "appointmentscheduled"
-                        },
-                        {
-                            "property": "amount",
-                            "value": "={{$json.properties.estimated_arv}} || {{$json.properties.list_price}}"
-                        },
-                        {
-                            "property": "deal_key",
-                            "value": "={{$json.properties.deal_key}}"
-                        },
-                        {
-                            "property": "listing_url",
-                            "value": "={{$json.properties.listing_url}}"
-                        }
-                    ]
+                "dealStage": "2952819401",
+                "pipeline": "default",
+                "columns": {
+                    "mappingMode": "defineBelow",
+                    "value": {
+                        "dealname": "={{$json.properties.address}}",
+                        "amount": "={{$json.properties.estimated_arv}}",
+                        "deal_key": "={{$json.properties.deal_key}}",
+                        "listing_url": "={{$json.properties.listing_url}}",
+                        "source_system": "Zillow"
+                    },
+                    "matchingColumns": [],
+                    "schema": []
                 }
             },
             "id": "upsert-hubspot",
             "name": "HubSpot: Create Deal",
             "type": "n8n-nodes-base.hubspot",
-            "typeVersion": 1,
+            "typeVersion": 2,
             "position": [
-                850,
+                1050,
                 300
             ],
             "credentials": {
-                "hubSpotDeveloperApiKey": {
+                "hubSpotApi": {
                     "id": "YOUR_CREDENTIAL_ID",
                     "name": "HubSpot Account"
                 }
@@ -105,7 +112,18 @@
         }
     ],
     "connections": {
-        "Gmail Trigger": {
+        "Schedule Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Gmail: Get Unread",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Gmail: Get Unread": {
             "main": [
                 [
                     {

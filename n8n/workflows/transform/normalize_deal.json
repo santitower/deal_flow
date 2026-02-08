@@ -13,8 +13,19 @@
             ]
         },
         {
+            "parameters": {},
+            "id": "trigger-execute",
+            "name": "Execute Workflow Trigger",
+            "type": "n8n-nodes-base.executeWorkflowTrigger",
+            "typeVersion": 1,
+            "position": [
+                250,
+                500
+            ]
+        },
+        {
             "parameters": {
-                "jsCode": "// Normalization Logic\n// Inputs: Items with 'source' ('PropStream' | 'Zillow') and raw data\n\nreturn items.map(item => {\n  const json = item.json;\n  const source = json.source || 'Unknown';\n  \n  // Initialize Canonical Object\n  const deal = {\n    source_system: source,\n    last_data_refresh: new Date().toISOString(),\n    properties: {},\n    meta: {}\n  };\n\n  // Helper: Slugify for Key Generation\n  const slugify = (text) => text ? text.toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-') : '';\n\n  if (source === 'PropStream') {\n    // --- PROPSTREAM MAPPING ---\n    const address = json['Address'] || '';\n    const zip = json['Zip'] || '';\n    \n    deal.properties = {\n      deal_key: `${slugify(address)}-${zip}`,\n      address: address,\n      city: json['City'],\n      state: json['State'],\n      zip: zip,\n      property_type: json['Property Type'],\n      beds: Number(json['Beds']),\n      baths: Number(json['Baths']),\n      sqft: Number(json['SqFt']),\n      year_built: Number(json['Year Built']),\n      estimated_arv: Number(json['Estimated Value']),\n      equity_amt: Number(json['Equity Amount']),\n      owner_name_1: json['Owner 1 First Name'] + ' ' + json['Owner 1 Last Name'],\n      owner_phone: json['Owner Phone']\n    };\n    \n  } else if (source === 'Zillow') {\n    // --- ZILLOW MAPPING ---\n    const address = json.address || '';\n    const zip = json.zipcode || '';\n    \n    deal.properties = {\n      deal_key: `${slugify(address)}-${zip}`,\n      address: address,\n      city: json.city,\n      state: json.state,\n      zip: zip,\n      property_type: json.homeType,\n      beds: json.bedrooms,\n      baths: json.bathrooms,\n      sqft: json.livingArea,\n      year_built: json.yearBuilt,\n      list_price: json.price,\n      listing_url: json.url,\n      listing_status: json.homeStatus,\n      zestimate: json.zestimate\n    };\n  }\n\n  // --- CALCULATED FIELDS ---\n  // Simple MAO (Maximum Allowable Offer) Logic: (ARV * 0.7) - Rehab(est 30k)\n  const arv = deal.properties.estimated_arv || deal.properties.zestimate || 0;\n  if (arv > 0) {\n    deal.properties.mao = (arv * 0.70) - 30000;\n  }\n\n  return { json: deal };\n});"
+                "jsCode": "// Normalization Logic\n// Inputs: Items with 'source' ('PropStream' | 'Zillow') and raw data\n\nconst normalizedItems = items.map(item => {\n  const json = item.json;\n  const source = json.source || 'Unknown';\n  \n  // Initialize Canonical Object\n  const deal = {\n    source_system: source,\n    last_data_refresh: new Date().toISOString(),\n    properties: {},\n    meta: {}\n  };\n\n  // Helper: Slugify for Key Generation\n  const slugify = (text) => text ? text.toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-') : '';\n\n  if (source === 'PropStream') {\n    // --- PROPSTREAM MAPPING ---\n    const address = json['Address'] || '';\n    const zip = json['Zip'] || '';\n    \n    deal.properties = {\n      deal_key: `${slugify(address)}-${zip}`,\n      address: address,\n      city: json['City'],\n      state: json['State'],\n      zip: zip,\n      property_type: json['Property Type'],\n      beds: Number(json['Beds']),\n      baths: Number(json['Baths']),\n      sqft: Number(json['SqFt']),\n      year_built: Number(json['Year Built']),\n      estimated_arv: Number(json['Estimated Value']),\n      equity_amt: Number(json['Equity Amount']),\n      owner_name_1: json['Owner 1 First Name'] + ' ' + json['Owner 1 Last Name'],\n      owner_phone: json['Owner Phone']\n    };\n    \n  } else if (source.includes('Zillow')) {\n    // --- ZILLOW MAPPING ---\n    // Handle both 'Zillow' and 'Zillow Digest'\n    const address = json.address || '';\n    \n    // CRITICAL FIX: Skip if address is not found (common in digests)\n    if (!address || address === 'Address Not Found') {\n        return null;\n    }\n\n    const zip = json.zipcode || '';\n    \n    deal.properties = {\n      deal_key: `${slugify(address)}-${zip}`,\n      address: address,\n      city: json.city,\n      state: json.state,\n      zip: zip,\n      property_type: json.homeType,\n      beds: json.bedrooms,\n      baths: json.bathrooms,\n      sqft: json.livingArea,\n      year_built: json.yearBuilt,\n      estimated_arv: Number(json.price || 0), // Map price to ARV for now\n      list_price: Number(json.price || 0),\n      listing_url: json.listing_url || json.url,\n      listing_status: json.homeStatus,\n      zestimate: json.zestimate,\n      description: json.description\n    };\n  }\n\n  // --- CALCULATED FIELDS ---\n  // Simple MAO (Maximum Allowable Offer) Logic: (ARV * 0.7) - Rehab(est 30k)\n  const arv = deal.properties.estimated_arv || deal.properties.zestimate || 0;\n  if (arv > 0) {\n    deal.properties.mao = (arv * 0.70) - 30000;\n  }\n\n  return { json: deal };\n});\n\n// Filter out nulls (skipped items)\nreturn normalizedItems.filter(item => item !== null);"
             },
             "id": "normalization-code",
             "name": "Normalize to Canonical",
@@ -22,19 +33,6 @@
             "typeVersion": 2,
             "position": [
                 450,
-                300
-            ]
-        },
-        {
-            "parameters": {
-                "operation": "toJson"
-            },
-            "id": "convert-to-json",
-            "name": "Item to JSON",
-            "type": "n8n-nodes-base.convertToJson",
-            "typeVersion": 1,
-            "position": [
-                650,
                 300
             ]
         }
@@ -51,11 +49,11 @@
                 ]
             ]
         },
-        "Normalize to Canonical": {
+        "Execute Workflow Trigger": {
             "main": [
                 [
                     {
-                        "node": "Item to JSON",
+                        "node": "Normalize to Canonical",
                         "type": "main",
                         "index": 0
                     }
