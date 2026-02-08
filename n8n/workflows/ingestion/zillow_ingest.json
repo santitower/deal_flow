@@ -1,160 +1,151 @@
 {
-    "name": "Ingestion_Zillow_Gmail",
-    "nodes": [
-        {
-            "parameters": {
-                "rule": {
-                    "interval": [
-                        {
-                            "field": "minutes",
-                            "minutesInterval": 15
-                        }
-                    ]
-                }
-            },
-            "id": "schedule-trigger",
-            "name": "Schedule Trigger",
-            "type": "n8n-nodes-base.scheduleTrigger",
-            "typeVersion": 1.1,
-            "position": [
-                250,
-                300
-            ]
-        },
-        {
-            "parameters": {
-                "operation": "getAll",
-                "limit": 20,
-                "simple": false,
-                "filters": {
-                    "q": "from:instant-updates@mail.zillow.com is:unread label:ZILLOW_UPDATES"
-                },
-                "options": {
-                    "includeSpamTrash": false
-                }
-            },
-            "id": "gmail-get",
-            "name": "Gmail: Get Unread",
-            "type": "n8n-nodes-base.gmail",
-            "typeVersion": 2,
-            "position": [
-                450,
-                300
-            ],
-            "credentials": {
-                "gmailOAuth2": {
-                    "id": "YOUR_GMAIL_CREDENTIALS",
-                    "name": "Gmail Account"
-                }
+  "updatedAt": "2026-02-05T01:55:33.329Z",
+  "createdAt": "2026-02-05T00:56:22.026Z",
+  "id": "sS5BXJOPtzcIo3sqE3vj2",
+  "name": "Ingestion_Zillow_Gmail",
+  "description": null,
+  "active": false,
+  "isArchived": true,
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
             }
+          ]
         },
-        {
-            "parameters": {
-                "jsCode": "// Email Parsing Logic (Multi-Listing Digest Support)\n// Handles Zillow '10 Results for...' digest emails\n\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const body = item.json.text || item.json.snippet || '';\n  \n  // Split by the dash separator Zillow uses between listings\n  const chunks = body.split('------');\n\n  for (const chunk of chunks) {\n    // Clean up whitespace\n    const cleanChunk = chunk.trim();\n    if (cleanChunk.length < 50) continue; // Skip header/footer noise\n\n    // EXTRACT URL\n    // Looking for https://click.mail.zillow.com... that eventually goes to a property\n    // Zillow digest links are often wrapped or long, we grab the first http link in the chunk\n    const urlMatch = cleanChunk.match(/https:\\/\\/click\\.mail\\.zillow\\.com\\/[^\\s\\\"'>]+/);\n    \n    // EXTRACT PRICE\n    // Looks like: \"$25,000\"\n    const priceMatch = cleanChunk.match(/\\$[0-9,]{4,}/);\n\n    // EXTRACT ADDRESS\n    // In text version, it often appears after the stats line (bd | ba | sqft)\n    // Pattern:  \"3 bd | 1 ba | 1,906 sqft\\n\\n11775 Rossiter St, Detroit, MI\"\n    // We'll look for the address pattern roughly: Number Street, City, State\n    const addressMatch = cleanChunk.match(/\\n([0-9]+[^\\n]+(?:Ave|St|Rd|Ln|Dr|Cir|Blvd|Way)[^\\n]+, [A-Z]{2})/i);\n\n    if (urlMatch && priceMatch) {\n        results.push({\n            json: {\n                source: 'Zillow Digest',\n                price: Number(priceMatch[0].replace(/[^0-9.]/g, '')),\n                listing_url: urlMatch[0],\n                address: addressMatch ? addressMatch[1].trim() : 'Address Not Found',\n                description: cleanChunk.substring(0, 200) + '...',\n                email_subject: item.json.subject\n            }\n        });\n    }\n  }\n}\n\nif (results.length === 0) {\n    // Debug fallback if no listings found in any email\n    return [{\n        json: {\n            source: 'DEBUG',\n            error: 'No listings parsed',\n            body_sample: items[0]?.json.text?.substring(0, 500)\n        }\n    }];\n}\n\nreturn results;"
-            },
-            "id": "parse-email",
-            "name": "Parse Email Body",
-            "type": "n8n-nodes-base.code",
-            "typeVersion": 2,
-            "position": [
-                650,
-                300
-            ]
-        },
-        {
-            "parameters": {
-                "workflowId": "Deal_Normalization_Canonical",
-                "mode": "once"
-            },
-            "id": "call-normalization",
-            "name": "Execute Normalization",
-            "type": "n8n-nodes-base.executeWorkflow",
-            "typeVersion": 1,
-            "position": [
-                850,
-                300
-            ]
-        },
-        {
-            "parameters": {
-                "authentication": "hubSpotApi",
-                "resource": "deal",
-                "operation": "create",
-                "dealStage": "2952819401",
-                "pipeline": "default",
-                "columns": {
-                    "mappingMode": "defineBelow",
-                    "value": {
-                        "dealname": "={{$json.properties.address}}",
-                        "amount": "={{$json.properties.estimated_arv}}",
-                        "deal_key": "={{$json.properties.deal_key}}",
-                        "listing_url": "={{$json.properties.listing_url}}",
-                        "source_system": "Zillow"
-                    },
-                    "matchingColumns": [],
-                    "schema": []
-                }
-            },
-            "id": "upsert-hubspot",
-            "name": "HubSpot: Create Deal",
-            "type": "n8n-nodes-base.hubspot",
-            "typeVersion": 2,
-            "position": [
-                1050,
-                300
-            ],
-            "credentials": {
-                "hubSpotApi": {
-                    "id": "YOUR_CREDENTIAL_ID",
-                    "name": "HubSpot Account"
-                }
-            }
+        "filters": {
+          "labelIds": [
+            "Label_7250454636291489305"
+          ],
+          "sender": "instant-updates@mail.zillow.com"
         }
-    ],
-    "connections": {
-        "Schedule Trigger": {
-            "main": [
-                [
-                    {
-                        "node": "Gmail: Get Unread",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Gmail: Get Unread": {
-            "main": [
-                [
-                    {
-                        "node": "Parse Email Body",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Parse Email Body": {
-            "main": [
-                [
-                    {
-                        "node": "Execute Normalization",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Execute Normalization": {
-            "main": [
-                [
-                    {
-                        "node": "HubSpot: Create Deal",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
+      },
+      "id": "b06462f7-17d4-4cd2-a9b5-8824dc573291",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "rGd7LPhV5PIbTiM6",
+          "name": "Gmail account"
         }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Email Parsing Logic\n// Extracts standard Zillow email format data\n\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const body = item.json.text || item.json.snippet || '';\n  \n  // Regex Patterns (Heuristic examples - would need tuning based on actual email)\n  // Example: \"$350,000 | 123 Main St, Springfield, IL\"\n  const priceMatch = body.match(/\\$[0-9,]+/);\n  const urlMatch = body.match(/https:\\/\\/www\\.zillow\\.com\\/homedetails\\/[^\\s\\\"'>]+/);\n  const addressMatch = body.match(/\\|\\s+([^\\n]+)/); // Very simple heuristic\n\n  if (urlMatch) {\n    results.push({\n      json: {\n        source: 'Zillow',\n        price: priceMatch ? Number(priceMatch[0].replace(/[^0-9.]/g, '')) : 0,\n        listing_url: urlMatch[0],\n        // Assuming partial address parsing or using subject line in real implementation\n        address: item.json.subject.replace('New matches for ', '') || 'Unknown Address',\n        description: item.json.snippet\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "832eef63-d66d-4696-a939-3ffa3db1d038",
+      "name": "Parse Email Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "Deal_Normalization_Canonical",
+        "options": {}
+      },
+      "id": "2f2628a0-8a49-4518-b82a-1e52c04cacce",
+      "name": "Execute Normalization",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "hubSpotDeveloperApiKey",
+        "additionalFields": {}
+      },
+      "id": "df5c5522-39bb-4cc4-8416-4989f7ef3950",
+      "name": "HubSpot: Create Deal",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 1,
+      "position": [
+        608,
+        0
+      ]
     }
+  ],
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Email Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Email Body": {
+      "main": [
+        [
+          {
+            "node": "Execute Normalization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Normalization": {
+      "main": [
+        [
+          {
+            "node": "HubSpot: Create Deal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "2f64ce40-2f96-42e6-9eda-6149d73102de",
+  "activeVersionId": null,
+  "versionCounter": 3,
+  "triggerCount": 0,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-02-05T00:56:22.026Z",
+      "createdAt": "2026-02-05T00:56:22.026Z",
+      "role": "workflow:owner",
+      "workflowId": "sS5BXJOPtzcIo3sqE3vj2",
+      "projectId": "VNV9rSM2JeXyxIFc",
+      "project": {
+        "updatedAt": "2026-02-05T00:41:53.983Z",
+        "createdAt": "2026-02-05T00:41:35.223Z",
+        "id": "VNV9rSM2JeXyxIFc",
+        "name": "santi santi <santi.at.the.tower@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "47c63571-c0bf-4878-a756-ca8098a5a991"
+      }
+    }
+  ]
 }

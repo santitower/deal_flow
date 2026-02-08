@@ -4,10 +4,11 @@ This document provides a detailed explanation of the n8n automation workflow des
 
 ---
 
-### 1. Trigger and Schedule
-The workflow initiates through a **Scheduled Interval** (e.g., every 15 minutes) or a **HubSpot Webhook**. 
-*   **Polling Method**: The n8n "HubSpot Trigger" node or a "Cron" node scans HubSpot for any record where the `Automation Queue` is set to `Queue`.
-*   **Real-time Method**: A HubSpot Webhook can trigger the workflow immediately when a Deal or Contact is updated, provided the specific filter criteria are met.
+### 1. Trigger and Schedule (Localhost Support)
+Since the system is running on **localhost**, a traditional real-time Webhook is not used. Instead, the workflow uses a **Polling Trigger**:
+*   **Schedule Trigger**: The workflow is set to run automatically at a specific interval (e.g., every 1 minute).
+*   **HubSpot Search**: On every run, n8n proactively asks HubSpot: "Are there any deals where the `Automation Queue` is set to `Queue`?"
+*   **Impact**: This allows the automation to work perfectly inside a local or firewalled environment without needing a public URL (Ngrok/Cloudflare).
 
 ### 2. Deal Identification
 The workflow uses the `Automation Queue` property as a traffic controller. 

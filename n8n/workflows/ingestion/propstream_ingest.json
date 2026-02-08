@@ -1,182 +1,191 @@
 {
-    "name": "Ingestion_PropStream_CSV",
-    "nodes": [
-        {
-            "parameters": {
-                "httpMethod": "POST",
-                "path": "propstream-ingest",
-                "responseMode": "lastNode",
-                "options": {}
-            },
-            "id": "webhook",
-            "name": "Webhook (Receive CSV)",
-            "type": "n8n-nodes-base.webhook",
-            "typeVersion": 1,
-            "position": [
-                250,
-                300
-            ]
-        },
-        {
-            "parameters": {
-                "options": {}
-            },
-            "id": "parse-csv",
-            "name": "Spreadsheet File",
-            "type": "n8n-nodes-base.spreadsheetFile",
-            "typeVersion": 1,
-            "position": [
-                450,
-                300
-            ]
-        },
-        {
-            "parameters": {
-                "batchSize": 10,
-                "options": {}
-            },
-            "id": "split-in-batches",
-            "name": "Split In Batches",
-            "type": "n8n-nodes-base.splitInBatches",
-            "typeVersion": 1,
-            "position": [
-                650,
-                300
-            ]
-        },
-        {
-            "parameters": {
-                "keepOnlySet": false,
-                "values": {
-                    "string": [
-                        {
-                            "name": "source",
-                            "value": "PropStream"
-                        }
-                    ]
-                },
-                "options": {}
-            },
-            "id": "add-source-tag",
-            "name": "Set Source=PropStream",
-            "type": "n8n-nodes-base.set",
-            "typeVersion": 1,
-            "position": [
-                850,
-                300
-            ]
-        },
-        {
-            "parameters": {
-                "workflowId": "Deal_Normalization_Canonical"
-            },
-            "id": "call-normalization",
-            "name": "Execute Normalization",
-            "type": "n8n-nodes-base.executeWorkflow",
-            "typeVersion": 1,
-            "position": [
-                1050,
-                300
-            ]
-        },
-        {
-            "parameters": {
-                "authentication": "hubSpotApi",
-                "resource": "deal",
-                "operation": "create",
-                "resolveData": true,
-                "additionalFields": {
-                    "properties": [
-                        {
-                            "property": "dealname",
-                            "value": "={{$json.properties.address}}"
-                        },
-                        {
-                            "property": "dealstage",
-                            "value": "appointmentscheduled"
-                        },
-                        {
-                            "property": "amount",
-                            "value": "={{$json.properties.estimated_arv}}"
-                        },
-                        {
-                            "property": "deal_key",
-                            "value": "={{$json.properties.deal_key}}"
-                        }
-                    ]
-                }
-            },
-            "id": "upsert-hubspot",
-            "name": "HubSpot: Create Deal",
-            "type": "n8n-nodes-base.hubspot",
-            "typeVersion": 1,
-            "position": [
-                1250,
-                300
-            ],
-            "credentials": {
-                "hubSpotApi": {
-                    "id": "YOUR_CREDENTIAL_ID",
-                    "name": "HubSpot Account"
-                }
+  "updatedAt": "2026-02-05T00:56:04.896Z",
+  "createdAt": "2026-02-05T00:56:04.896Z",
+  "id": "9ZYkgTYKGHPV_zZJTPdQa",
+  "name": "Ingestion_PropStream_CSV",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "propstream-ingest",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "441035cb-5dc8-4adf-8a03-3f175e4e81aa",
+      "name": "Webhook (Receive CSV)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "455ff82b-dfe1-4057-94f1-1f9380dbda10"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "cde6fb6b-24a4-4900-a9bd-f41a860333db",
+      "name": "Spreadsheet File",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "typeVersion": 1,
+      "position": [
+        208,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "2b5e3afb-a60e-4943-a52a-4b154512448b",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "source",
+              "value": "PropStream"
             }
-        }
-    ],
-    "connections": {
-        "Webhook (Receive CSV)": {
-            "main": [
-                [
-                    {
-                        "node": "Spreadsheet File",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
+          ]
         },
-        "Spreadsheet File": {
-            "main": [
-                [
-                    {
-                        "node": "Split In Batches",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Split In Batches": {
-            "main": [
-                [
-                    {
-                        "node": "Set Source=PropStream",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Set Source=PropStream": {
-            "main": [
-                [
-                    {
-                        "node": "Execute Normalization",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Execute Normalization": {
-            "main": [
-                [
-                    {
-                        "node": "HubSpot: Create Deal",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        }
+        "options": {}
+      },
+      "id": "34455af1-1945-4544-b0dd-976d88e90920",
+      "name": "Set Source=PropStream",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        608,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "Deal_Normalization_Canonical",
+        "options": {}
+      },
+      "id": "b8cda647-481a-4b97-9c00-55c4bf35304b",
+      "name": "Execute Normalization",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "hubSpotDeveloperApiKey",
+        "additionalFields": {}
+      },
+      "id": "235d8f94-4730-4acf-8f68-b1f0e1b9d742",
+      "name": "HubSpot: Create Deal",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 1,
+      "position": [
+        1008,
+        0
+      ]
     }
+  ],
+  "connections": {
+    "Webhook (Receive CSV)": {
+      "main": [
+        [
+          {
+            "node": "Spreadsheet File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spreadsheet File": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "Set Source=PropStream",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Source=PropStream": {
+      "main": [
+        [
+          {
+            "node": "Execute Normalization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Normalization": {
+      "main": [
+        [
+          {
+            "node": "HubSpot: Create Deal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "b2e42063-3526-4625-8736-11b3cb074863",
+  "activeVersionId": null,
+  "versionCounter": 1,
+  "triggerCount": 0,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-02-05T00:56:04.896Z",
+      "createdAt": "2026-02-05T00:56:04.896Z",
+      "role": "workflow:owner",
+      "workflowId": "9ZYkgTYKGHPV_zZJTPdQa",
+      "projectId": "VNV9rSM2JeXyxIFc",
+      "project": {
+        "updatedAt": "2026-02-05T00:41:53.983Z",
+        "createdAt": "2026-02-05T00:41:35.223Z",
+        "id": "VNV9rSM2JeXyxIFc",
+        "name": "santi santi <santi.at.the.tower@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "47c63571-c0bf-4878-a756-ca8098a5a991"
+      }
+    }
+  ]
 }

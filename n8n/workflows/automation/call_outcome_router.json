@@ -1,17 +1,21 @@
 {
-    "name": "Automation_Call_Outcome_Router",
+    "name": "Automation_Call_Outcome_Router (Polling)",
     "nodes": [
         {
             "parameters": {
-                "httpMethod": "POST",
-                "path": "hubspot-deal-update",
-                "responseMode": "lastNode",
-                "options": {}
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 1
+                        }
+                    ]
+                }
             },
-            "id": "webhook-trigger",
-            "name": "Webhook (HubSpot Trigger)",
-            "type": "n8n-nodes-base.webhook",
-            "typeVersion": 1,
+            "id": "schedule-trigger",
+            "name": "Every 1 Minute",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.1,
             "position": [
                 0,
                 300
@@ -19,35 +23,52 @@
         },
         {
             "parameters": {
-                "conditions": {
-                    "string": [
+                "authentication": "hubSpotApi",
+                "resource": "deal",
+                "operation": "search",
+                "filterGroups": {
+                    "filters": [
                         {
-                            "value1": "={{$json.body.properties.automation_queue.value}}",
-                            "operation": "equal",
-                            "value2": "queue"
+                            "propertyName": "automation_queue",
+                            "operator": "EQ",
+                            "value": "queue"
                         }
+                    ]
+                },
+                "additionalFields": {
+                    "properties": [
+                        "dealname",
+                        "call_outcome",
+                        "follow_up_date",
+                        "automation_queue"
                     ]
                 }
             },
-            "id": "filter-queue",
-            "name": "If: Is Queued?",
-            "type": "n8n-nodes-base.if",
+            "id": "search-queued-deals",
+            "name": "HubSpot: Find Queued Deals",
+            "type": "n8n-nodes-base.hubspot",
             "typeVersion": 1,
             "position": [
                 200,
                 300
-            ]
+            ],
+            "credentials": {
+                "hubSpotApi": {
+                    "id": "YOUR_CREDENTIAL_ID",
+                    "name": "HubSpot Account"
+                }
+            }
         },
         {
             "parameters": {
-                "jsCode": "const body = $node[\"Webhook (HubSpot Trigger)\"].json.body;\nconst outcome = body.properties.call_outcome?.value || '';\nconst manualDate = body.properties.follow_up_date?.value;\n\nlet dueDate = new Date();\n\nif (manualDate) {\n  dueDate = new Date(manualDate);\n} else {\n  if (outcome === 'no_answer' || outcome === 'left_vm') {\n    dueDate.setDate(dueDate.getDate() + 1); // 24h follow up\n  } else if (outcome === 'not_interested') {\n    dueDate.setDate(dueDate.getDate() + 90); // 90 day recircle\n  } else if (outcome === 'not_a_good_time') {\n    dueDate.setDate(dueDate.getDate() + 3); // 3 day follow up\n  } else if (outcome === 'hot') {\n    dueDate.setHours(dueDate.getHours() + 1); // Immediate/1h task\n  }\n}\n\nreturn {\n  outcome: outcome,\n  due_date: dueDate.toISOString(),\n  object_id: body.objectId,\n  address: body.properties.dealname?.value || 'Unknown Address'\n};"
+                "jsCode": "const outcome = $json.properties.call_outcome || '';\nconst manualDate = $json.properties.follow_up_date;\n\nlet dueDate = new Date();\nif (manualDate) {\n  dueDate = new Date(manualDate);\n} else {\n  if (outcome === 'no_answer' || outcome === 'left_vm') {\n    dueDate.setDate(dueDate.getDate() + 1);\n  } else if (outcome === 'not_interested') {\n    dueDate.setDate(dueDate.getDate() + 90);\n  } else if (outcome === 'not_a_good_time') {\n    dueDate.setDate(dueDate.getDate() + 3);\n  } else if (outcome === 'hot') {\n    dueDate.setHours(dueDate.getHours() + 1);\n  }\n}\n\nreturn {\n  outcome: outcome,\n  due_date: dueDate.toISOString(),\n  object_id: $json.id,\n  address: $json.properties.dealname || 'Unknown Deal'\n};"
             },
             "id": "prepare-logic",
-            "name": "Prepare Logic & Dates",
+            "name": "Calculate Dates",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                400,
+                450,
                 300
             ]
         },
@@ -91,7 +112,7 @@
             "type": "n8n-nodes-base.switch",
             "typeVersion": 1,
             "position": [
-                600,
+                650,
                 300
             ]
         },
@@ -118,7 +139,7 @@
             "type": "n8n-nodes-base.hubspot",
             "typeVersion": 1,
             "position": [
-                850,
+                900,
                 150
             ],
             "credentials": {
@@ -151,7 +172,7 @@
             "type": "n8n-nodes-base.hubspot",
             "typeVersion": 1,
             "position": [
-                850,
+                900,
                 300
             ],
             "credentials": {
@@ -184,7 +205,7 @@
             "type": "n8n-nodes-base.hubspot",
             "typeVersion": 1,
             "position": [
-                850,
+                900,
                 450
             ],
             "credentials": {
@@ -217,7 +238,7 @@
             "type": "n8n-nodes-base.hubspot",
             "typeVersion": 1,
             "position": [
-                850,
+                900,
                 600
             ],
             "credentials": {
@@ -232,9 +253,10 @@
                 "authentication": "hubSpotApi",
                 "resource": "deal",
                 "operation": "update",
-                "dealId": "={{$node[\"Prepare Logic & Dates\"].json.object_id}}",
+                "dealId": "={{$json.object_id}}",
                 "updateFields": {
-                    "automation_queue": "processed"
+                    "automation_queue": "processed",
+                    "dealstage": "={{$node[\"Calculate Dates\"].json.outcome === 'hot' ? '2952819405' : ($node[\"Calculate Dates\"].json.outcome === 'not_interested' ? '2952819403' : '2952819401')}}"
                 }
             },
             "id": "mark-processed",
@@ -242,7 +264,7 @@
             "type": "n8n-nodes-base.hubspot",
             "typeVersion": 1,
             "position": [
-                1150,
+                1200,
                 375
             ],
             "credentials": {
@@ -254,29 +276,29 @@
         }
     ],
     "connections": {
-        "Webhook (HubSpot Trigger)": {
+        "Every 1 Minute": {
             "main": [
                 [
                     {
-                        "node": "If: Is Queued?",
+                        "node": "HubSpot: Find Queued Deals",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "If: Is Queued?": {
+        "HubSpot: Find Queued Deals": {
             "main": [
                 [
                     {
-                        "node": "Prepare Logic & Dates",
+                        "node": "Calculate Dates",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "Prepare Logic & Dates": {
+        "Calculate Dates": {
             "main": [
                 [
                     {
