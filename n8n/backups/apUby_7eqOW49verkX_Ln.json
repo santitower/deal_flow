@@ -1,0 +1,292 @@
+{
+  "updatedAt": "2026-02-08T21:06:21.827Z",
+  "createdAt": "2026-02-05T02:11:13.514Z",
+  "id": "apUby_7eqOW49verkX_Ln",
+  "name": "Ingestion_Zillow_Gmail_Section8",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "7ef00912-9bda-404b-acc4-071f1cd2a6d2",
+      "name": "Schedule Trigger1",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        32,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "simple": false,
+        "filters": {
+          "labelIds": [
+            "Label_7250454636291489305"
+          ],
+          "q": "from:instant-updates@mail.zillow.com is:unread label:ZILLOW_UPDATES"
+        },
+        "options": {}
+      },
+      "id": "b11a5602-6c84-4163-8e00-a2207feb3abb",
+      "name": "Gmail: Get Unread1",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        256,
+        320
+      ],
+      "webhookId": "2189ab65-9e37-48f9-b86d-a34a92a4be50",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "rGd7LPhV5PIbTiM6",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Email Parsing Logic (Multi-Listing Digest Support)\n// Handles Zillow '10 Results for...' digest emails\n\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const body = item.json.text || item.json.snippet || '';\n  \n  // Split by the dash separator Zillow uses between listings\n  const chunks = body.split('------');\n\n  for (const chunk of chunks) {\n    // Clean up whitespace\n    const cleanChunk = chunk.trim();\n    if (cleanChunk.length < 50) continue; // Skip header/footer noise\n\n    // EXTRACT URL\n    // Looking for https://click.mail.zillow.com... that eventually goes to a property\n    // Zillow digest links are often wrapped or long, we grab the first http link in the chunk\n    const urlMatch = cleanChunk.match(/https:\\/\\/click\\.mail\\.zillow\\.com\\/[^\\s\\\"'>]+/);\n    \n    // EXTRACT PRICE\n    // Looks like: \"$25,000\"\n    const priceMatch = cleanChunk.match(/\\$[0-9,]{4,}/);\n\n    // EXTRACT ADDRESS\n    // In text version, it often appears after the stats line (bd | ba | sqft)\n    // Pattern:  \"3 bd | 1 ba | 1,906 sqft\\n\\n11775 Rossiter St, Detroit, MI\"\n    // We'll look for the address pattern roughly: Number Street, City, State\n    const addressMatch = cleanChunk.match(/\\n([0-9]+[^\\n]+(?:Ave|St|Rd|Ln|Dr|Cir|Blvd|Way)[^\\n]+, [A-Z]{2})/i);\n\n    if (urlMatch && priceMatch) {\n        results.push({\n            json: {\n                source: 'Zillow Digest',\n                price: Number(priceMatch[0].replace(/[^0-9.]/g, '')),\n                listing_url: urlMatch[0],\n                address: addressMatch ? addressMatch[1].trim() : 'Address Not Found',\n                description: cleanChunk.substring(0, 200) + '...',\n                email_subject: item.json.subject\n            }\n        });\n    }\n  }\n}\n\nif (results.length === 0) {\n    // Debug fallback if no listings found in any email\n    return [{\n        json: {\n            source: 'DEBUG',\n            error: 'No listings parsed',\n            body_sample: items[0]?.json.text?.substring(0, 500)\n        }\n    }];\n}\n\nreturn results;"
+      },
+      "id": "1c70e107-27a3-4d23-b318-9b6b2d8f1990",
+      "name": "Parse Email Body1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "VpSYx7huUZoPhUUch0i7-",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/VpSYx7huUZoPhUUch0i7-",
+          "cachedResultName": "Deal_Normalization_Canonical"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        704,
+        224
+      ],
+      "id": "beda0b83-a96a-4c78-b59f-f0635ecf6eb9",
+      "name": "Call 'Deal_Normalization_Canonical'"
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "resource": "deal",
+        "stage": "2952819401",
+        "additionalFields": {
+          "customPropertiesUi": {
+            "customPropertiesValues": [
+              {
+                "property": "property_link",
+                "value": "={{ $json.properties.listing_url }}"
+              },
+              {
+                "property": "call_outcome"
+              }
+            ]
+          },
+          "dealName": "={{ $json.properties.address }}",
+          "dealType": "section_8"
+        }
+      },
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        1152,
+        224
+      ],
+      "id": "dbf8c335-cac3-4e79-b629-659c89befd78",
+      "name": "Create a deal",
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "sDamMCnWz3OPlhKd",
+          "name": "HubSpot App Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "efa48c9e-1c11-4766-b35b-43728e1c0d37",
+              "leftValue": "={{ $json.properties.address }}",
+              "rightValue": "Address Not Found",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        928,
+        224
+      ],
+      "id": "3b6b5f5b-25ed-4d9f-9b5b-c6ca51b35d8f",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $json.id }}"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        416
+      ],
+      "id": "a8f83d62-893d-4c54-936a-7f63bc804d7d",
+      "name": "Mark a message as read",
+      "webhookId": "7dccf3f9-8e31-4697-b7a0-c5467554aac9",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "rGd7LPhV5PIbTiM6",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Gmail: Get Unread1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail: Get Unread1": {
+      "main": [
+        [
+          {
+            "node": "Parse Email Body1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mark a message as read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Email Body1": {
+      "main": [
+        [
+          {
+            "node": "Call 'Deal_Normalization_Canonical'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'Deal_Normalization_Canonical'": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Create a deal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark a message as read": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "23120dc3-5b93-4326-9040-a36ff2c5f40b",
+  "activeVersionId": "23120dc3-5b93-4326-9040-a36ff2c5f40b",
+  "versionCounter": 24,
+  "triggerCount": 1,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-02-05T02:11:13.514Z",
+      "createdAt": "2026-02-05T02:11:13.514Z",
+      "role": "workflow:owner",
+      "workflowId": "apUby_7eqOW49verkX_Ln",
+      "projectId": "VNV9rSM2JeXyxIFc",
+      "project": {
+        "updatedAt": "2026-02-05T00:41:53.983Z",
+        "createdAt": "2026-02-05T00:41:35.223Z",
+        "id": "VNV9rSM2JeXyxIFc",
+        "name": "santi santi <santi.at.the.tower@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "47c63571-c0bf-4878-a756-ca8098a5a991"
+      }
+    }
+  ]
+}

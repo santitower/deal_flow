@@ -1,0 +1,90 @@
+{
+  "updatedAt": "2026-02-05T01:55:31.076Z",
+  "createdAt": "2026-02-05T00:56:38.900Z",
+  "id": "b3N9yYuJaznMsvR6UNp33",
+  "name": "Deal_Normalization_Canonical",
+  "description": null,
+  "active": false,
+  "isArchived": true,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "86d3efcc-239e-4708-9a00-ef322691940e",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalization Logic\n// Inputs: Items with 'source' ('PropStream' | 'Zillow') and raw data\n\nreturn items.map(item => {\n  const json = item.json;\n  const source = json.source || 'Unknown';\n  \n  // Initialize Canonical Object\n  const deal = {\n    source_system: source,\n    last_data_refresh: new Date().toISOString(),\n    properties: {},\n    meta: {}\n  };\n\n  // Helper: Slugify for Key Generation\n  const slugify = (text) => text ? text.toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-') : '';\n\n  if (source === 'PropStream') {\n    // --- PROPSTREAM MAPPING ---\n    const address = json['Address'] || '';\n    const zip = json['Zip'] || '';\n    \n    deal.properties = {\n      deal_key: `${slugify(address)}-${zip}`,\n      address: address,\n      city: json['City'],\n      state: json['State'],\n      zip: zip,\n      property_type: json['Property Type'],\n      beds: Number(json['Beds']),\n      baths: Number(json['Baths']),\n      sqft: Number(json['SqFt']),\n      year_built: Number(json['Year Built']),\n      estimated_arv: Number(json['Estimated Value']),\n      equity_amt: Number(json['Equity Amount']),\n      owner_name_1: json['Owner 1 First Name'] + ' ' + json['Owner 1 Last Name'],\n      owner_phone: json['Owner Phone']\n    };\n    \n  } else if (source === 'Zillow') {\n    // --- ZILLOW MAPPING ---\n    const address = json.address || '';\n    const zip = json.zipcode || '';\n    \n    deal.properties = {\n      deal_key: `${slugify(address)}-${zip}`,\n      address: address,\n      city: json.city,\n      state: json.state,\n      zip: zip,\n      property_type: json.homeType,\n      beds: json.bedrooms,\n      baths: json.bathrooms,\n      sqft: json.livingArea,\n      year_built: json.yearBuilt,\n      list_price: json.price,\n      listing_url: json.url,\n      listing_status: json.homeStatus,\n      zestimate: json.zestimate\n    };\n  }\n\n  // --- CALCULATED FIELDS ---\n  // Simple MAO (Maximum Allowable Offer) Logic: (ARV * 0.7) - Rehab(est 30k)\n  const arv = deal.properties.estimated_arv || deal.properties.zestimate || 0;\n  if (arv > 0) {\n    deal.properties.mao = (arv * 0.70) - 30000;\n  }\n\n  return { json: deal };\n});"
+      },
+      "id": "2e3fbc30-c058-4d15-8ede-86b491069e26",
+      "name": "Normalize to Canonical",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "2f59af2e-e825-4896-9545-73315cb856fb",
+      "name": "Item to JSON",
+      "type": "n8n-nodes-base.convertToJson",
+      "typeVersion": 1,
+      "position": [
+        400,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize to Canonical",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "6a08e2e7-7b79-4d69-ab66-3289015297c5",
+  "activeVersionId": null,
+  "versionCounter": 2,
+  "triggerCount": 0,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-02-05T00:56:38.900Z",
+      "createdAt": "2026-02-05T00:56:38.900Z",
+      "role": "workflow:owner",
+      "workflowId": "b3N9yYuJaznMsvR6UNp33",
+      "projectId": "VNV9rSM2JeXyxIFc",
+      "project": {
+        "updatedAt": "2026-02-05T00:41:53.983Z",
+        "createdAt": "2026-02-05T00:41:35.223Z",
+        "id": "VNV9rSM2JeXyxIFc",
+        "name": "santi santi <santi.at.the.tower@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "47c63571-c0bf-4878-a756-ca8098a5a991"
+      }
+    }
+  ]
+}

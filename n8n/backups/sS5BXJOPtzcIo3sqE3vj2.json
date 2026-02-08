@@ -1,0 +1,151 @@
+{
+  "updatedAt": "2026-02-05T01:55:33.329Z",
+  "createdAt": "2026-02-05T00:56:22.026Z",
+  "id": "sS5BXJOPtzcIo3sqE3vj2",
+  "name": "Ingestion_Zillow_Gmail",
+  "description": null,
+  "active": false,
+  "isArchived": true,
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "labelIds": [
+            "Label_7250454636291489305"
+          ],
+          "sender": "instant-updates@mail.zillow.com"
+        }
+      },
+      "id": "b06462f7-17d4-4cd2-a9b5-8824dc573291",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "rGd7LPhV5PIbTiM6",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Email Parsing Logic\n// Extracts standard Zillow email format data\n\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const body = item.json.text || item.json.snippet || '';\n  \n  // Regex Patterns (Heuristic examples - would need tuning based on actual email)\n  // Example: \"$350,000 | 123 Main St, Springfield, IL\"\n  const priceMatch = body.match(/\\$[0-9,]+/);\n  const urlMatch = body.match(/https:\\/\\/www\\.zillow\\.com\\/homedetails\\/[^\\s\\\"'>]+/);\n  const addressMatch = body.match(/\\|\\s+([^\\n]+)/); // Very simple heuristic\n\n  if (urlMatch) {\n    results.push({\n      json: {\n        source: 'Zillow',\n        price: priceMatch ? Number(priceMatch[0].replace(/[^0-9.]/g, '')) : 0,\n        listing_url: urlMatch[0],\n        // Assuming partial address parsing or using subject line in real implementation\n        address: item.json.subject.replace('New matches for ', '') || 'Unknown Address',\n        description: item.json.snippet\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "832eef63-d66d-4696-a939-3ffa3db1d038",
+      "name": "Parse Email Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "Deal_Normalization_Canonical",
+        "options": {}
+      },
+      "id": "2f2628a0-8a49-4518-b82a-1e52c04cacce",
+      "name": "Execute Normalization",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "hubSpotDeveloperApiKey",
+        "additionalFields": {}
+      },
+      "id": "df5c5522-39bb-4cc4-8416-4989f7ef3950",
+      "name": "HubSpot: Create Deal",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 1,
+      "position": [
+        608,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Email Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Email Body": {
+      "main": [
+        [
+          {
+            "node": "Execute Normalization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Normalization": {
+      "main": [
+        [
+          {
+            "node": "HubSpot: Create Deal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "2f64ce40-2f96-42e6-9eda-6149d73102de",
+  "activeVersionId": null,
+  "versionCounter": 3,
+  "triggerCount": 0,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-02-05T00:56:22.026Z",
+      "createdAt": "2026-02-05T00:56:22.026Z",
+      "role": "workflow:owner",
+      "workflowId": "sS5BXJOPtzcIo3sqE3vj2",
+      "projectId": "VNV9rSM2JeXyxIFc",
+      "project": {
+        "updatedAt": "2026-02-05T00:41:53.983Z",
+        "createdAt": "2026-02-05T00:41:35.223Z",
+        "id": "VNV9rSM2JeXyxIFc",
+        "name": "santi santi <santi.at.the.tower@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "47c63571-c0bf-4878-a756-ca8098a5a991"
+      }
+    }
+  ]
+}

@@ -1,0 +1,210 @@
+{
+  "updatedAt": "2026-02-05T00:55:33.799Z",
+  "createdAt": "2026-02-05T00:55:33.799Z",
+  "id": "EEwWIQEgWzMC4wcIh4_uq",
+  "name": "Automation_Call_Outcome_Router",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "hubspot-deal-update",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "71832007-5186-4f27-b1d7-7884e1f8e2e8",
+      "name": "Webhook (HubSpot Trigger)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        112
+      ],
+      "webhookId": "8f59d25e-11d8-44ba-831c-7110fc3b5ef1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.body.properties.call_outcome.value}}",
+              "value2": "no_answer"
+            },
+            {
+              "value1": "={{$json.body.properties.call_outcome.value}}",
+              "value2": "left_vm"
+            }
+          ]
+        },
+        "combineOperation": "any"
+      },
+      "id": "ecf5fcdb-5abe-4598-a974-0dc7bbf9275d",
+      "name": "If: No Connect",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -208,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.body.properties.call_outcome.value}}",
+              "value2": "connected"
+            }
+          ]
+        }
+      },
+      "id": "4b5fff36-4bce-48a2-8dfe-99614d910a3c",
+      "name": "If: Connected",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -208,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "hubSpotDeveloperApiKey",
+        "operation": "update",
+        "dealId": "={{$json.body.objectId}}",
+        "updateFields": {}
+      },
+      "id": "2734b439-9d3a-4b85-ab14-bdfef5af1ce3",
+      "name": "Update Stage: No Connect",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "hubSpotDeveloperApiKey",
+        "operation": "update",
+        "dealId": "={{$json.body.objectId}}",
+        "updateFields": {}
+      },
+      "id": "c57b574c-f55d-4153-8ad7-f5506daafd97",
+      "name": "Update Stage: Connected",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 1,
+      "position": [
+        0,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "hubSpotDeveloperApiKey",
+        "resource": "engagement",
+        "type": "task",
+        "metadata": {
+          "body": "Follow up with lead - they answered!",
+          "status": "NOT_STARTED",
+          "subject": "Follow Up Task"
+        },
+        "additionalFields": {}
+      },
+      "id": "12be250c-49e1-49cd-8316-5a63ed370055",
+      "name": "Create Task: Follow Up",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 1,
+      "position": [
+        208,
+        256
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook (HubSpot Trigger)": {
+      "main": [
+        [
+          {
+            "node": "If: No Connect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: No Connect": {
+      "main": [
+        [
+          {
+            "node": "Update Stage: No Connect",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If: Connected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: Connected": {
+      "main": [
+        [
+          {
+            "node": "Update Stage: Connected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Stage: Connected": {
+      "main": [
+        [
+          {
+            "node": "Create Task: Follow Up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "9e5e13da-7d61-45c3-b26d-8c7b5ee06426",
+  "activeVersionId": "9e5e13da-7d61-45c3-b26d-8c7b5ee06426",
+  "versionCounter": 3,
+  "triggerCount": 1,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-02-05T00:55:33.799Z",
+      "createdAt": "2026-02-05T00:55:33.799Z",
+      "role": "workflow:owner",
+      "workflowId": "EEwWIQEgWzMC4wcIh4_uq",
+      "projectId": "VNV9rSM2JeXyxIFc",
+      "project": {
+        "updatedAt": "2026-02-05T00:41:53.983Z",
+        "createdAt": "2026-02-05T00:41:35.223Z",
+        "id": "VNV9rSM2JeXyxIFc",
+        "name": "santi santi <santi.at.the.tower@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "47c63571-c0bf-4878-a756-ca8098a5a991"
+      }
+    }
+  ]
+}
