@@ -1,174 +1,378 @@
 {
-  "updatedAt": "2026-02-05T00:55:33.799Z",
+  "updatedAt": "2026-02-09T18:44:00.558Z",
   "createdAt": "2026-02-05T00:55:33.799Z",
   "id": "EEwWIQEgWzMC4wcIh4_uq",
-  "name": "Automation_Call_Outcome_Router",
+  "name": "Automation_Call_Outcome_Router (Polling)",
   "description": null,
   "active": true,
   "isArchived": false,
   "nodes": [
     {
       "parameters": {
-        "httpMethod": "POST",
-        "path": "hubspot-deal-update",
-        "responseMode": "lastNode",
-        "options": {}
-      },
-      "id": "71832007-5186-4f27-b1d7-7884e1f8e2e8",
-      "name": "Webhook (HubSpot Trigger)",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
-      "position": [
-        -400,
-        112
-      ],
-      "webhookId": "8f59d25e-11d8-44ba-831c-7110fc3b5ef1"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "string": [
+        "rule": {
+          "interval": [
             {
-              "value1": "={{$json.body.properties.call_outcome.value}}",
-              "value2": "no_answer"
-            },
-            {
-              "value1": "={{$json.body.properties.call_outcome.value}}",
-              "value2": "left_vm"
-            }
-          ]
-        },
-        "combineOperation": "any"
-      },
-      "id": "ecf5fcdb-5abe-4598-a974-0dc7bbf9275d",
-      "name": "If: No Connect",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [
-        -208,
-        112
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "string": [
-            {
-              "value1": "={{$json.body.properties.call_outcome.value}}",
-              "value2": "connected"
+              "field": "minutes",
+              "minutesInterval": 1
             }
           ]
         }
       },
-      "id": "4b5fff36-4bce-48a2-8dfe-99614d910a3c",
-      "name": "If: Connected",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "id": "6c3c4e60-cae3-4cbc-8c2b-e57f0a53b2e8",
+      "name": "Every 1 Minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
       "position": [
-        -208,
-        304
+        -1488,
+        1152
       ]
     },
     {
       "parameters": {
-        "authentication": "hubSpotDeveloperApiKey",
-        "operation": "update",
-        "dealId": "={{$json.body.objectId}}",
-        "updateFields": {}
-      },
-      "id": "2734b439-9d3a-4b85-ab14-bdfef5af1ce3",
-      "name": "Update Stage: No Connect",
-      "type": "n8n-nodes-base.hubspot",
-      "typeVersion": 1,
-      "position": [
-        0,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "authentication": "hubSpotDeveloperApiKey",
-        "operation": "update",
-        "dealId": "={{$json.body.objectId}}",
-        "updateFields": {}
-      },
-      "id": "c57b574c-f55d-4153-8ad7-f5506daafd97",
-      "name": "Update Stage: Connected",
-      "type": "n8n-nodes-base.hubspot",
-      "typeVersion": 1,
-      "position": [
-        0,
-        256
-      ]
-    },
-    {
-      "parameters": {
-        "authentication": "hubSpotDeveloperApiKey",
-        "resource": "engagement",
-        "type": "task",
-        "metadata": {
-          "body": "Follow up with lead - they answered!",
-          "status": "NOT_STARTED",
-          "subject": "Follow Up Task"
+        "authentication": "appToken",
+        "resource": "deal",
+        "operation": "search",
+        "filterGroupsUi": {
+          "filterGroupsValues": [
+            {
+              "filtersUi": {
+                "filterValues": [
+                  {
+                    "propertyName": "automation_queue",
+                    "value": "queue"
+                  }
+                ]
+              }
+            }
+          ]
         },
         "additionalFields": {}
       },
-      "id": "12be250c-49e1-49cd-8316-5a63ed370055",
-      "name": "Create Task: Follow Up",
+      "id": "9509fcd8-583d-4faa-8bd3-5599191dd32e",
+      "name": "HubSpot: Find Queued Deals",
       "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2,
+      "position": [
+        -1296,
+        1152
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "sDamMCnWz3OPlhKd",
+          "name": "HubSpot App Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const properties = item.json.properties || {};\n  const outcome = properties.call_outcome || '';\n  const manualDate = properties.follow_up_date;\n  const propLink = properties.property_link || 'No link provided';\n\n  let dueDate = new Date();\n  if (manualDate) {\n    dueDate = new Date(manualDate);\n  } else {\n    if (outcome === 'no_answer' || outcome === 'left_vm') {\n      dueDate.setDate(dueDate.getDate() + 1);\n    } else if (outcome === 'not_interested') {\n      dueDate.setDate(dueDate.getDate() + 90);\n    } else if (outcome === 'not_a_good_time') {\n      dueDate.setDate(dueDate.getDate() + 3);\n    } else if (outcome === 'hot') {\n      dueDate.setHours(dueDate.getHours() + 1);\n    }\n  }\n\n  // HubSpot Date properties require midnight UTC Unix Milliseconds\n  const midnight = new Date(Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), dueDate.getUTCDate()));\n\n  return {\n    json: {\n      outcome: outcome,\n      due_date: dueDate.toISOString(),\n      due_date_timestamp: midnight.getTime(), // This is the fix!\n      object_id: item.json.id,\n      address: properties.dealname || 'Unknown Deal',\n      property_link: propLink\n    }\n  };\n});"
+      },
+      "id": "a5b9da51-dde2-4be9-aeb2-d40e156bc6e8",
+      "name": "Calculate Dates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1040,
+        1152
+      ]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{$json.outcome}}",
+        "rules": {
+          "rules": [
+            {
+              "operation": "contains",
+              "value2": "no_answer"
+            },
+            {
+              "operation": "contains",
+              "value2": "left_vm"
+            },
+            {
+              "value2": "not_interested",
+              "output": 1
+            },
+            {
+              "value2": "not_a_good_time",
+              "output": 2
+            },
+            {
+              "value2": "hot",
+              "output": 3
+            }
+          ]
+        },
+        "fallbackOutput": 0
+      },
+      "id": "2f1f5549-bbea-4910-afc5-5d409fd07d66",
+      "name": "Switch: Outcome",
+      "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
       "position": [
-        208,
-        256
+        -848,
+        1152
       ]
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "resource": "engagement",
+        "type": "task",
+        "metadata": {
+          "body": "={{ 'View Property: ' + $json.property_link + '\\nScheduled Follow-Up: ' + $json.due_date + '\\n\\nOriginal Note: Call back: Missed connection. Prompt follow-up scheduled.' }}",
+          "forObjectType": "CONTACT",
+          "status": "NOT_STARTED",
+          "subject": "={{'Follow Up: ' + $json.address}}"
+        },
+        "additionalFields": {}
+      },
+      "id": "fa22cf00-54d7-403d-955f-1d2acbb5c027",
+      "name": "Task: Missed Call",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2,
+      "position": [
+        -592,
+        976
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "sDamMCnWz3OPlhKd",
+          "name": "HubSpot App Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "resource": "engagement",
+        "type": "task",
+        "metadata": {
+          "body": "={{ 'View Property: ' + $json.property_link + '\\nScheduled Follow-Up: ' + $json.due_date + '\\n\\nOriginal Note: Recircle: Lead was not interested 90 days ago. Re-check motivation.' }}",
+          "forObjectType": "CONTACT",
+          "status": "NOT_STARTED",
+          "subject": "={{'Recircle: ' + $json.address}}"
+        },
+        "additionalFields": {}
+      },
+      "id": "160adc79-e1e4-4f7a-bd23-9e8419d8bff5",
+      "name": "Task: 90-Day Recircle",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2,
+      "position": [
+        -592,
+        1152
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "sDamMCnWz3OPlhKd",
+          "name": "HubSpot App Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "resource": "engagement",
+        "type": "task",
+        "metadata": {
+          "body": "={{ 'View Property: ' + $json.property_link + '\\nScheduled Follow-Up: ' + $json.due_date + '\\n\\nOriginal Note: Follow up: Timing was bad during last call. interest level is warm.' }}",
+          "forObjectType": "CONTACT",
+          "status": "NOT_STARTED",
+          "subject": "={{'Follow Up (Better Timing): ' + $json.address}}"
+        },
+        "additionalFields": {}
+      },
+      "id": "8eb7617b-cb0f-41e9-8884-7799ae037a36",
+      "name": "Task: Better Timing",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2,
+      "position": [
+        -592,
+        1296
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "sDamMCnWz3OPlhKd",
+          "name": "HubSpot App Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "resource": "engagement",
+        "type": "task",
+        "metadata": {
+          "body": "={{ 'View Property: ' + $json.property_link + '\\nScheduled Follow-Up: ' + $json.due_date + '\\n\\nOriginal Note: URGENT: Hot prospect. Capitalize on motivation immediately.' }}",
+          "forObjectType": "CONTACT",
+          "status": "NOT_STARTED",
+          "subject": "={{'PRIORITY CLOSE: ' + $json.address}}"
+        },
+        "additionalFields": {}
+      },
+      "id": "537f24f7-8bd1-4e4d-b623-7d9646030363",
+      "name": "Task: HOT LEAD",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2,
+      "position": [
+        -592,
+        1456
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "sDamMCnWz3OPlhKd",
+          "name": "HubSpot App Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "resource": "deal",
+        "operation": "update",
+        "dealId": {
+          "__rl": true,
+          "value": "={{ $('Calculate Dates').item.json.object_id }}",
+          "mode": "id"
+        },
+        "updateFields": {
+          "customPropertiesUi": {
+            "customPropertiesValues": [
+              {
+                "property": "automation_queue",
+                "value": "processed"
+              },
+              {
+                "property": "follow_up_date",
+                "value": "={{ $('Calculate Dates').item.json.due_date_timestamp }}"
+              }
+            ]
+          },
+          "stage": "={{ $('Calculate Dates').item.json.outcome === 'hot' ? '2952819405' : ($('Calculate Dates').item.json.outcome === 'not_interested' ? '2952819403' : '2952819401') }}"
+        }
+      },
+      "id": "206c1ff5-6090-4606-8647-9ede34221a27",
+      "name": "Final: Mark Processed",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        1232
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "sDamMCnWz3OPlhKd",
+          "name": "HubSpot App Token account"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook (HubSpot Trigger)": {
+    "Every 1 Minute": {
       "main": [
         [
           {
-            "node": "If: No Connect",
+            "node": "HubSpot: Find Queued Deals",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "If: No Connect": {
+    "HubSpot: Find Queued Deals": {
       "main": [
         [
           {
-            "node": "Update Stage: No Connect",
+            "node": "Calculate Dates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Dates": {
+      "main": [
+        [
+          {
+            "node": "Switch: Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch: Outcome": {
+      "main": [
+        [
+          {
+            "node": "Task: Missed Call",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "If: Connected",
+            "node": "Task: 90-Day Recircle",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Task: Better Timing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Task: HOT LEAD",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "If: Connected": {
+    "Task: Missed Call": {
       "main": [
         [
           {
-            "node": "Update Stage: Connected",
+            "node": "Final: Mark Processed",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Update Stage: Connected": {
+    "Task: 90-Day Recircle": {
       "main": [
         [
           {
-            "node": "Create Task: Follow Up",
+            "node": "Final: Mark Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task: Better Timing": {
+      "main": [
+        [
+          {
+            "node": "Final: Mark Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task: HOT LEAD": {
+      "main": [
+        [
+          {
+            "node": "Final: Mark Processed",
             "type": "main",
             "index": 0
           }
@@ -181,11 +385,13 @@
     "availableInMCP": false
   },
   "staticData": null,
-  "meta": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
   "pinData": {},
-  "versionId": "9e5e13da-7d61-45c3-b26d-8c7b5ee06426",
-  "activeVersionId": "9e5e13da-7d61-45c3-b26d-8c7b5ee06426",
-  "versionCounter": 3,
+  "versionId": "13ef5646-03d6-49af-9c19-469626d44a07",
+  "activeVersionId": "10b2bbd1-e655-41ac-88e9-4bde4355a198",
+  "versionCounter": 13,
   "triggerCount": 1,
   "tags": [],
   "shared": [
