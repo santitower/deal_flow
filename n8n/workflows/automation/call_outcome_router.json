@@ -23,45 +23,50 @@
         },
         {
             "parameters": {
-                "authentication": "hubSpotApi",
+                "authentication": "appToken",
                 "resource": "deal",
                 "operation": "search",
-                "filterGroups": {
-                    "filters": [
+                "filterGroupsUi": {
+                    "filterGroupsValues": [
                         {
-                            "propertyName": "automation_queue",
-                            "operator": "EQ",
-                            "value": "queue"
+                            "filtersUi": {
+                                "filterValues": [
+                                    {
+                                        "propertyName": "automation_queue",
+                                        "operator": "EQ",
+                                        "value": "queue"
+                                    }
+                                ]
+                            }
                         }
                     ]
                 },
-                "additionalFields": {
-                    "properties": [
-                        "dealname",
-                        "call_outcome",
-                        "follow_up_date",
-                        "automation_queue"
-                    ]
-                }
+                "properties": [
+                    "dealname",
+                    "call_outcome",
+                    "follow_up_date",
+                    "automation_queue",
+                    "property_link"
+                ]
             },
             "id": "search-queued-deals",
             "name": "HubSpot: Find Queued Deals",
             "type": "n8n-nodes-base.hubspot",
-            "typeVersion": 1,
+            "typeVersion": 2,
             "position": [
                 200,
                 300
             ],
             "credentials": {
-                "hubSpotApi": {
-                    "id": "YOUR_CREDENTIAL_ID",
-                    "name": "HubSpot Account"
+                "hubspotAppToken": {
+                    "id": "sDamMCnWz3OPlhKd",
+                    "name": "HubSpot App Token account"
                 }
             }
         },
         {
             "parameters": {
-                "jsCode": "const outcome = $json.properties.call_outcome || '';\nconst manualDate = $json.properties.follow_up_date;\n\nlet dueDate = new Date();\nif (manualDate) {\n  dueDate = new Date(manualDate);\n} else {\n  if (outcome === 'no_answer' || outcome === 'left_vm') {\n    dueDate.setDate(dueDate.getDate() + 1);\n  } else if (outcome === 'not_interested') {\n    dueDate.setDate(dueDate.getDate() + 90);\n  } else if (outcome === 'not_a_good_time') {\n    dueDate.setDate(dueDate.getDate() + 3);\n  } else if (outcome === 'hot') {\n    dueDate.setHours(dueDate.getHours() + 1);\n  }\n}\n\nreturn {\n  outcome: outcome,\n  due_date: dueDate.toISOString(),\n  object_id: $json.id,\n  address: $json.properties.dealname || 'Unknown Deal'\n};"
+                "jsCode": "return $input.all().map(item => {\n  const json = item.json;\n  // Support both flattened and nested property structures\n  const props = json.properties || json;\n  \n  // Robust value extraction (handles strings and { value: \"...\" } objects)\n  const getVal = (p) => (p && typeof p === 'object' && p.hasOwnProperty('value')) ? p.value : p;\n\n  const outcome = getVal(props.call_outcome) || '';\n  const manualDate = getVal(props.follow_up_date);\n  const propLink = getVal(props.property_link) || 'No link provided';\n  const address = getVal(props.dealname) || getVal(json.address) || 'Unknown Deal';\n\n  let dueDate = new Date();\n  let skipTask = false;\n\n  if (manualDate) {\n    dueDate = new Date(manualDate);\n  } else {\n    if (outcome === 'no_answer' || outcome === 'left_vm') {\n      dueDate.setDate(dueDate.getDate() + 1);\n    } else if (outcome === 'not_interested') {\n      dueDate.setDate(dueDate.getDate() + 90);\n    } else if (outcome === 'not_a_good_time') {\n      dueDate.setDate(dueDate.getDate() + 3);\n    } else if (outcome === 'hot') {\n      dueDate.setHours(dueDate.getHours() + 1);\n    } else if (outcome === 'warm') {\n      dueDate.setDate(dueDate.getDate() + 1);\n    } else if (outcome === 'wrong_number' || outcome === 'dnc') {\n      skipTask = true;\n    }\n  }\n\n  // HubSpot Date properties require midnight UTC Unix Milliseconds\n  const midnight = new Date(Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), dueDate.getUTCDate()));\n\n  return {\n    json: {\n      outcome: outcome,\n      due_date: dueDate.toISOString(),\n      due_date_timestamp: midnight.getTime(),\n      object_id: item.json.id,\n      address: address,\n      property_link: propLink,\n      skip_task: skipTask\n    }\n  };\n});"
             },
             "id": "prepare-logic",
             "name": "Calculate Dates",
@@ -102,10 +107,25 @@
                             "operation": "equal",
                             "value2": "hot",
                             "output": 3
+                        },
+                        {
+                            "operation": "equal",
+                            "value2": "warm",
+                            "output": 3
+                        },
+                        {
+                            "operation": "equal",
+                            "value2": "wrong_number",
+                            "output": 4
+                        },
+                        {
+                            "operation": "equal",
+                            "value2": "dnc",
+                            "output": 4
                         }
                     ]
                 },
-                "fallbackOutput": 4
+                "fallbackOutput": 0
             },
             "id": "outcome-switch",
             "name": "Switch: Outcome",
@@ -118,159 +138,204 @@
         },
         {
             "parameters": {
-                "authentication": "hubSpotApi",
+                "authentication": "appToken",
                 "resource": "engagement",
                 "operation": "create",
                 "type": "task",
                 "metadata": {
-                    "body": "Call back: Missed connection. Prompt follow-up scheduled.",
+                    "body": "={{ 'View Property: ' + $json.property_link + '\\nScheduled Follow-Up: ' + $json.due_date + '\\n\\nOriginal Note: Call back: Missed connection. Prompt follow-up scheduled.' }}",
+                    "forObjectType": "Contact",
                     "status": "NOT_STARTED",
                     "subject": "={{'Follow Up: ' + $json.address}}",
-                    "completionDate": "={{$json.due_date}}"
+                    "dueDate": "={{$json.due_date}}"
                 },
-                "associations": {
-                    "dealIds": [
-                        "={{$json.object_id}}"
+                "associationsUi": {
+                    "associationsValues": [
+                        {
+                            "resource": "deal",
+                            "id": "={{$json.object_id}}"
+                        },
+                        {
+                            "resource": "contact",
+                            "id": "398557576901"
+                        }
                     ]
                 }
             },
             "id": "task-missed-call",
             "name": "Task: Missed Call",
             "type": "n8n-nodes-base.hubspot",
-            "typeVersion": 1,
+            "typeVersion": 2,
             "position": [
                 900,
                 150
             ],
             "credentials": {
-                "hubSpotApi": {
-                    "id": "YOUR_CREDENTIAL_ID",
-                    "name": "HubSpot Account"
+                "hubspotAppToken": {
+                    "id": "sDamMCnWz3OPlhKd",
+                    "name": "HubSpot App Token account"
                 }
             }
         },
         {
             "parameters": {
-                "authentication": "hubSpotApi",
+                "authentication": "appToken",
                 "resource": "engagement",
                 "operation": "create",
                 "type": "task",
                 "metadata": {
-                    "body": "Recircle: Lead was not interested 90 days ago. Re-check motivation.",
+                    "body": "={{ 'View Property: ' + $json.property_link + '\\nScheduled Follow-Up: ' + $json.due_date + '\\n\\nOriginal Note: Recircle: Lead was not interested 90 days ago. Re-check motivation.' }}",
+                    "forObjectType": "Contact",
                     "status": "NOT_STARTED",
                     "subject": "={{'Recircle: ' + $json.address}}",
-                    "completionDate": "={{$json.due_date}}"
+                    "dueDate": "={{$json.due_date}}"
                 },
-                "associations": {
-                    "dealIds": [
-                        "={{$json.object_id}}"
+                "associationsUi": {
+                    "associationsValues": [
+                        {
+                            "resource": "deal",
+                            "id": "={{$json.object_id}}"
+                        },
+                        {
+                            "resource": "contact",
+                            "id": "398557576901"
+                        }
                     ]
                 }
             },
             "id": "task-not-interested",
             "name": "Task: 90-Day Recircle",
             "type": "n8n-nodes-base.hubspot",
-            "typeVersion": 1,
+            "typeVersion": 2,
             "position": [
                 900,
                 300
             ],
             "credentials": {
-                "hubSpotApi": {
-                    "id": "YOUR_CREDENTIAL_ID",
-                    "name": "HubSpot Account"
+                "hubspotAppToken": {
+                    "id": "sDamMCnWz3OPlhKd",
+                    "name": "HubSpot App Token account"
                 }
             }
         },
         {
             "parameters": {
-                "authentication": "hubSpotApi",
+                "authentication": "appToken",
                 "resource": "engagement",
                 "operation": "create",
                 "type": "task",
                 "metadata": {
-                    "body": "Follow up: Timing was bad during last call. interest level is warm.",
+                    "body": "={{ 'View Property: ' + $json.property_link + '\\nScheduled Follow-Up: ' + $json.due_date + '\\n\\nOriginal Note: Follow up: Timing was bad during last call. interest level is warm.' }}",
+                    "forObjectType": "Contact",
                     "status": "NOT_STARTED",
                     "subject": "={{'Follow Up (Better Timing): ' + $json.address}}",
-                    "completionDate": "={{$json.due_date}}"
+                    "dueDate": "={{$json.due_date}}"
                 },
-                "associations": {
-                    "dealIds": [
-                        "={{$json.object_id}}"
+                "associationsUi": {
+                    "associationsValues": [
+                        {
+                            "resource": "deal",
+                            "id": "={{$json.object_id}}"
+                        },
+                        {
+                            "resource": "contact",
+                            "id": "398557576901"
+                        }
                     ]
                 }
             },
             "id": "task-not-a-good-time",
             "name": "Task: Better Timing",
             "type": "n8n-nodes-base.hubspot",
-            "typeVersion": 1,
+            "typeVersion": 2,
             "position": [
                 900,
                 450
             ],
             "credentials": {
-                "hubSpotApi": {
-                    "id": "YOUR_CREDENTIAL_ID",
-                    "name": "HubSpot Account"
+                "hubspotAppToken": {
+                    "id": "sDamMCnWz3OPlhKd",
+                    "name": "HubSpot App Token account"
                 }
             }
         },
         {
             "parameters": {
-                "authentication": "hubSpotApi",
+                "authentication": "appToken",
                 "resource": "engagement",
                 "operation": "create",
                 "type": "task",
                 "metadata": {
-                    "body": "URGENT: Hot prospect. Capitalize on motivation immediately.",
+                    "body": "={{ 'View Property: ' + $json.property_link + '\\nScheduled Follow-Up: ' + $json.due_date + '\\n\\nOriginal Note: URGENT: Hot prospect. Capitalize on motivation immediately.' }}",
+                    "forObjectType": "contact",
                     "status": "NOT_STARTED",
                     "subject": "={{'PRIORITY CLOSE: ' + $json.address}}",
-                    "completionDate": "={{$json.due_date}}"
+                    "dueDate": "={{$json.due_date}}",
+                    "priority": "HIGH"
                 },
-                "associations": {
-                    "dealIds": [
-                        "={{$json.object_id}}"
+                "associationsUi": {
+                    "associationsValues": [
+                        {
+                            "resource": "deal",
+                            "id": "={{$json.object_id}}"
+                        },
+                        {
+                            "resource": "contact",
+                            "id": "398557576901"
+                        }
                     ]
                 }
             },
             "id": "task-hot-lead",
             "name": "Task: HOT LEAD",
             "type": "n8n-nodes-base.hubspot",
-            "typeVersion": 1,
+            "typeVersion": 2,
             "position": [
                 900,
                 600
             ],
             "credentials": {
-                "hubSpotApi": {
-                    "id": "YOUR_CREDENTIAL_ID",
-                    "name": "HubSpot Account"
+                "hubspotAppToken": {
+                    "id": "sDamMCnWz3OPlhKd",
+                    "name": "HubSpot App Token account"
                 }
             }
         },
         {
             "parameters": {
-                "authentication": "hubSpotApi",
+                "authentication": "appToken",
                 "resource": "deal",
                 "operation": "update",
-                "dealId": "={{$json.object_id}}",
-                "updateFields": {
-                    "automation_queue": "processed",
-                    "dealstage": "={{$node[\"Calculate Dates\"].json.outcome === 'hot' ? '2952819405' : ($node[\"Calculate Dates\"].json.outcome === 'not_interested' ? '2952819403' : '2952819401')}}"
+                "dealId": "={{ $('HubSpot: Find Queued Deals').item.json.id }}",
+                "propertiesUi": {
+                    "propertyValues": [
+                        {
+                            "property": "automation_queue",
+                            "value": "processed"
+                        },
+                        {
+                            "property": "follow_up_date",
+                            "value": "={{ $('Calculate Dates').item.json.due_date_timestamp }}"
+                        },
+                        {
+                            "property": "dealstage",
+                            "value": "={{ \n  const outcome = $('Calculate Dates').item.json.outcome;\n  if (['hot', 'warm'].includes(outcome)) return '2952819405';\n  if (outcome === 'not_interested') return '2952819403';\n  if (['wrong_number', 'dnc'].includes(outcome)) return 'LOST_ID_PLACEHOLDER';\n  return '2952819401';\n}}"
+                        }
+                    ]
                 }
             },
             "id": "mark-processed",
             "name": "Final: Mark Processed",
             "type": "n8n-nodes-base.hubspot",
-            "typeVersion": 1,
+            "typeVersion": 2,
             "position": [
                 1200,
                 375
             ],
             "credentials": {
-                "hubSpotApi": {
-                    "id": "YOUR_CREDENTIAL_ID",
-                    "name": "HubSpot Account"
+                "hubspotAppToken": {
+                    "id": "sDamMCnWz3OPlhKd",
+                    "name": "HubSpot App Token account"
                 }
             }
         }
@@ -335,6 +400,13 @@
                 [
                     {
                         "node": "Task: HOT LEAD",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Final: Mark Processed",
                         "type": "main",
                         "index": 0
                     }
