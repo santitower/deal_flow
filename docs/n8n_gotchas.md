@@ -74,6 +74,17 @@ This document serves as a living guide for the team to log incorrect assumptions
 **Incorrect Assumption:** The "Fallback Output" number refers to a default value rather than an output port index.
 **The Reality / Correct Approach:** Port indexes are 0-based. If you have 4 outputs (0, 1, 2, 3), selecting 4 for the Fallback will crash the node because output port 4 doesn't exist.
 **Prevention Rule:** Ensure your fallback output index is always within the range of existing branch ports.
+
+---
+
+**Symptom:** The Switch node UI restricts the number of output ports, or throws errors when trying to add more than 4 branches.
+**Incorrect Assumption:** The standard Switch node can handle an unlimited number of cases via the UI.
+**The Reality / Correct Approach:** The default n8n Switch node (v1) is often limited to 4 outputs (0-3). For complex routing with 5+ outcomes, you must either:
+1.  Use a **Code Node** to perform the logic and return a branch index.
+2.  Use a **Community Node** (like "Dynamic Switch").
+3.  **Chain** multiple Switch nodes together.
+**Prevention Rule:** Plan for chaining or use a Code node if your logic exceeds 4 discrete branches.
+
 ---
 
 **Symptom:** You want to avoid hitting the 1,000-contact limit on HubSpot Free while still using automated tasks for leads you haven't spoken to yet. 
@@ -95,6 +106,24 @@ This document serves as a living guide for the team to log incorrect assumptions
 **Incorrect Assumption:** The expression `{{ $('Node').item.json.id }}` is automatically cleaned of whitespace by n8n.
 **The Reality / Correct Approach:** If there is a single **leading space** or **leading equals sign** inside the text box but *outside* the `{{ }}` brackets, n8n evaluates the ID (e.g., `290575917789`) but then adds the character (e.g., ` 290575917789`). HubSpot's API cannot parse this as a valid numeric ID in the URL path.
 **Prevention Rule:** Always click into the field, press `Ctrl+A`, and `Backspace` to ensure the box is truly empty before pasting an expression. Ensure no `=` character exists outside the green highlight.
+
+---
+
+### HubSpot Search Node Properties Bug
+**Symptom:** Custom properties (like `call_outcome`) are missing from the node's output, even though they are listed in the "Properties" parameter. Only standard properties (like `dealname`) are returned.
+**Incorrect Assumption:** The "Properties" list in the HubSpot (v2) Search node always dictates which fields are returned.
+**The Reality / Correct Approach:** In some n8n versions, the Search node ignores the custom property list if "Simple" mode is on or if internal IDs are not refreshed.
+**Prevention Rule:** If custom properties are missing, replace the HubSpot node with an **HTTP Request node** using `POST https://api.hubapi.com/crm/v3/objects/deals/search` and explicitly pass the `properties` array in the JSON body.
+
+---
+
+### n8n Expression Syntax (Multiline Logic)
+**Symptom:** "Invalid Syntax" or "Expression is invalid" markers in n8n fields even when the JavaScript looks correct.
+**Incorrect Assumption:** You can use multiple `if/else` statements and `return` keywords directly in the `{{ ... }}` expression block.
+**The Reality / Correct Approach:** n8n expressions are evaluated as a single line. Direct `return` statements will fail. For complex mapping, you must use either:
+1.  **A Lookup Object:** `{{ ({'key': 'val', 'key2': 'val2'})[input] || 'fallback' }}`
+2.  **An IIFE (Immediately Invoked Function Expression):** `{{ (() => { if(x) return 1; return 0; })() }}`
+**Prevention Rule:** Favor lookup objects for simple mappings; use IIFEs for complex logic. Avoid raw multiline JS without a wrapper.
 
 ---
 
