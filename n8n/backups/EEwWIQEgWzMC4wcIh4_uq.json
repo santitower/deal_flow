@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-02-09T18:44:00.558Z",
+  "updatedAt": "2026-02-10T03:13:33.774Z",
   "createdAt": "2026-02-05T00:55:33.799Z",
   "id": "EEwWIQEgWzMC4wcIh4_uq",
   "name": "Automation_Call_Outcome_Router (Polling)",
@@ -9,29 +9,10 @@
   "nodes": [
     {
       "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "field": "minutes",
-              "minutesInterval": 1
-            }
-          ]
-        }
-      },
-      "id": "6c3c4e60-cae3-4cbc-8c2b-e57f0a53b2e8",
-      "name": "Every 1 Minute",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.1,
-      "position": [
-        -1488,
-        1152
-      ]
-    },
-    {
-      "parameters": {
         "authentication": "appToken",
         "resource": "deal",
         "operation": "search",
+        "returnAll": true,
         "filterGroupsUi": {
           "filterGroupsValues": [
             {
@@ -46,15 +27,19 @@
             }
           ]
         },
-        "additionalFields": {}
+        "additionalFields": {
+          "properties": [
+            "call_outcome"
+          ]
+        }
       },
       "id": "9509fcd8-583d-4faa-8bd3-5599191dd32e",
       "name": "HubSpot: Find Queued Deals",
       "type": "n8n-nodes-base.hubspot",
       "typeVersion": 2,
       "position": [
-        -1296,
-        1152
+        -1264,
+        1312
       ],
       "credentials": {
         "hubspotAppToken": {
@@ -65,7 +50,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return $input.all().map(item => {\n  const properties = item.json.properties || {};\n  const outcome = properties.call_outcome || '';\n  const manualDate = properties.follow_up_date;\n  const propLink = properties.property_link || 'No link provided';\n\n  let dueDate = new Date();\n  if (manualDate) {\n    dueDate = new Date(manualDate);\n  } else {\n    if (outcome === 'no_answer' || outcome === 'left_vm') {\n      dueDate.setDate(dueDate.getDate() + 1);\n    } else if (outcome === 'not_interested') {\n      dueDate.setDate(dueDate.getDate() + 90);\n    } else if (outcome === 'not_a_good_time') {\n      dueDate.setDate(dueDate.getDate() + 3);\n    } else if (outcome === 'hot') {\n      dueDate.setHours(dueDate.getHours() + 1);\n    }\n  }\n\n  // HubSpot Date properties require midnight UTC Unix Milliseconds\n  const midnight = new Date(Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), dueDate.getUTCDate()));\n\n  return {\n    json: {\n      outcome: outcome,\n      due_date: dueDate.toISOString(),\n      due_date_timestamp: midnight.getTime(), // This is the fix!\n      object_id: item.json.id,\n      address: properties.dealname || 'Unknown Deal',\n      property_link: propLink\n    }\n  };\n});"
+        "jsCode": "return $input.all().map(item => {\n  const json = item.json;\n  const props = json.properties || json;\n  \n  // Robust value extraction\n  const getVal = (p) => (p && typeof p === 'object' && p.hasOwnProperty('value')) ? p.value : p;\n\n  const outcome = getVal(props.call_outcome) || '';\n  const manualDate = getVal(props.follow_up_date);\n  const propLink = getVal(props.property_link) || 'No link provided';\n  const address = getVal(props.dealname) || getVal(json.address) || 'Unknown Deal';\n\n  let dueDate = new Date();\n  let hasFollowUp = true;\n  let skipTask = false;\n\n  if (manualDate) {\n    dueDate = new Date(manualDate);\n  } else {\n    // Timing Logic based on your outcome\n    if (outcome === 'no_answer' || outcome === 'left_vm') {\n      dueDate.setDate(dueDate.getDate() + 1);\n    } else if (outcome === 'not_a_good_time') {\n      dueDate.setDate(dueDate.getDate() + 3);\n    } else if (outcome === 'hot') {\n      dueDate.setHours(dueDate.getHours() + 1);\n    } else if (outcome === 'warm') {\n      dueDate.setDate(dueDate.getDate() + 1);\n    } else if (['not_interested', 'wrong_number', 'dnc'].includes(outcome)) {\n      hasFollowUp = false;\n      // Skip task for Bad Numbers/DNC, but not necessarily for Not Interested (per your routing matrix)\n      if (outcome !== 'not_interested') skipTask = true;\n    } else {\n      // Default fallback for new ingestion/incoming\n      dueDate.setDate(dueDate.getDate() + 1);\n    }\n  }\n\n  // HubSpot Date properties require midnight UTC Unix Milliseconds\n  const midnight = hasFollowUp \n    ? new Date(Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), dueDate.getUTCDate())).getTime()\n    : null;\n\n  return {\n    json: {\n      outcome: outcome,\n      due_date: hasFollowUp ? dueDate.toISOString() : null,\n      due_date_timestamp: midnight,\n      object_id: item.json.id,\n      address: address,\n      property_link: propLink,\n      has_follow_up: hasFollowUp,\n      skip_task: skipTask\n    }\n  };\n});"
       },
       "id": "a5b9da51-dde2-4be9-aeb2-d40e156bc6e8",
       "name": "Calculate Dates",
@@ -73,46 +58,7 @@
       "typeVersion": 2,
       "position": [
         -1040,
-        1152
-      ]
-    },
-    {
-      "parameters": {
-        "dataType": "string",
-        "value1": "={{$json.outcome}}",
-        "rules": {
-          "rules": [
-            {
-              "operation": "contains",
-              "value2": "no_answer"
-            },
-            {
-              "operation": "contains",
-              "value2": "left_vm"
-            },
-            {
-              "value2": "not_interested",
-              "output": 1
-            },
-            {
-              "value2": "not_a_good_time",
-              "output": 2
-            },
-            {
-              "value2": "hot",
-              "output": 3
-            }
-          ]
-        },
-        "fallbackOutput": 0
-      },
-      "id": "2f1f5549-bbea-4910-afc5-5d409fd07d66",
-      "name": "Switch: Outcome",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 1,
-      "position": [
-        -848,
-        1152
+        1312
       ]
     },
     {
@@ -162,7 +108,7 @@
       "typeVersion": 2,
       "position": [
         -592,
-        1152
+        1168
       ],
       "credentials": {
         "hubspotAppToken": {
@@ -190,7 +136,7 @@
       "typeVersion": 2,
       "position": [
         -592,
-        1296
+        1456
       ],
       "credentials": {
         "hubspotAppToken": {
@@ -218,7 +164,7 @@
       "typeVersion": 2,
       "position": [
         -592,
-        1456
+        1648
       ],
       "credentials": {
         "hubspotAppToken": {
@@ -250,7 +196,7 @@
               }
             ]
           },
-          "stage": "={{ $('Calculate Dates').item.json.outcome === 'hot' ? '2952819405' : ($('Calculate Dates').item.json.outcome === 'not_interested' ? '2952819403' : '2952819401') }}"
+          "stage": "={{ ({\n  'hot':             '3102494422', // Hot Lead\n  'warm':            '3102494421', // Warm Lead\n  'connected':       '3102494420', // Connected - Working\n  'no_answer':       '3102494419', // Attempted - No Connect\n  'left_vm':         '3102494419', // Attempted - No Connect\n  'not_a_good_time': '3102494419', // Attempted - No Connect\n  'not_interested':  '3102494423', // Closed Lost (Not Interested)\n  'wrong_number':    '3102246628', // Closed Lost (Bad Data)\n  'dnc':             '3102246628'  // Closed Lost (Bad Data)\n})[$('Calculate Dates').item.json.outcome] || '3102494418' }}"
         }
       },
       "id": "206c1ff5-6090-4606-8647-9ede34221a27",
@@ -258,8 +204,8 @@
       "type": "n8n-nodes-base.hubspot",
       "typeVersion": 2,
       "position": [
-        -288,
-        1232
+        -368,
+        1312
       ],
       "credentials": {
         "hubspotAppToken": {
@@ -267,20 +213,78 @@
           "name": "HubSpot App Token account"
         }
       }
+    },
+    {
+      "parameters": {
+        "numberOfOutputs": 5,
+        "outputLabels": "=",
+        "dataType": "string",
+        "value1String": "={{$json.outcome}}",
+        "rulesString": {
+          "rules": [
+            {
+              "value2": "dnc"
+            },
+            {
+              "value2": "wrong_number"
+            },
+            {
+              "value2": "warm",
+              "output": 1
+            },
+            {
+              "value2": "no_answer",
+              "output": 1
+            },
+            {
+              "value2": "left_vm",
+              "output": 1
+            },
+            {
+              "value2": "not_a_good_time",
+              "output": 2
+            },
+            {
+              "value2": "not_interested",
+              "output": 3
+            },
+            {
+              "value2": "hot",
+              "output": 4
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-dynamic-switch.dynamicSwitch",
+      "typeVersion": 1,
+      "position": [
+        -816,
+        1264
+      ],
+      "id": "9134f1c6-ea50-40d8-b9c0-5b648c5dc474",
+      "name": "Dynamic Switch"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 1
+            }
+          ]
+        }
+      },
+      "id": "6c3c4e60-cae3-4cbc-8c2b-e57f0a53b2e8",
+      "name": "Every Day",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1488,
+        1312
+      ]
     }
   ],
   "connections": {
-    "Every 1 Minute": {
-      "main": [
-        [
-          {
-            "node": "HubSpot: Find Queued Deals",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "HubSpot: Find Queued Deals": {
       "main": [
         [
@@ -296,39 +300,7 @@
       "main": [
         [
           {
-            "node": "Switch: Outcome",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Switch: Outcome": {
-      "main": [
-        [
-          {
-            "node": "Task: Missed Call",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Task: 90-Day Recircle",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Task: Better Timing",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Task: HOT LEAD",
+            "node": "Dynamic Switch",
             "type": "main",
             "index": 0
           }
@@ -378,6 +350,56 @@
           }
         ]
       ]
+    },
+    "Dynamic Switch": {
+      "main": [
+        [
+          {
+            "node": "Final: Mark Processed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Task: Missed Call",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Task: Better Timing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Task: 90-Day Recircle",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Task: HOT LEAD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every Day": {
+      "main": [
+        [
+          {
+            "node": "HubSpot: Find Queued Deals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -389,9 +411,9 @@
     "templateCredsSetupCompleted": true
   },
   "pinData": {},
-  "versionId": "13ef5646-03d6-49af-9c19-469626d44a07",
-  "activeVersionId": "10b2bbd1-e655-41ac-88e9-4bde4355a198",
-  "versionCounter": 13,
+  "versionId": "c375e21e-c849-4a8e-be63-9566b418287a",
+  "activeVersionId": "c375e21e-c849-4a8e-be63-9566b418287a",
+  "versionCounter": 24,
   "triggerCount": 1,
   "tags": [],
   "shared": [
