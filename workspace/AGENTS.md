@@ -45,6 +45,20 @@ Capture what matters. Decisions, context, things to remember. Skip the secrets u
 - When you make a mistake → document it so future-you doesn't repeat it
 - **Text > Brain** 📝
 
+## Tasks & Scheduling
+
+You have multiple ways to track tasks and schedule actions:
+
+- **TASKS.md** — Persistent task list (Today, This Week, Backlog, Completed)
+- **SCHEDULING.md** — Complete guide to cron jobs, heartbeats, and system events
+- **HEARTBEAT.md** — Periodic checks that run every ~30 minutes
+
+**Quick tips:**
+- Update `TASKS.md` freely during sessions
+- Use `openclaw cron add` for precise scheduling needs
+- Check `TASKS.md` during heartbeats for due tasks
+- See `SCHEDULING.md` for cron syntax and examples
+
 ## Safety
 
 - Don't exfiltrate private data. Ever.
