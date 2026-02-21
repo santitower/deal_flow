@@ -17,3 +17,18 @@ venv/
 
 # n8n
 n8n_data/
+
+# OpenClaw - sensitive
+identity/
+credentials/
+devices/
+openclaw.json
+
+# OpenClaw - local state
+logs/
+agents/
+telegram/
+models/
+update-check.json
+*.bak
+*.bak.*
