@@ -70,7 +70,13 @@ rem ============================================================
 call :free_port
 
 rem ============================================================
-rem  3. Launch gateway with retry loop
+rem  3. Start Integrity Sidecar (Token Rotation)
+rem ============================================================
+call :log "Starting Integrity Sidecar..."
+start "" /B powershell.exe -ExecutionPolicy Bypass -File "C:\Users\franc\.openclaw\scripts\integrity-sidecar.ps1"
+
+rem ============================================================
+rem  4. Launch gateway with retry loop
 rem ============================================================
 set "OPENCLAW_GATEWAY_PORT=%GATEWAY_PORT%"
 set "OPENCLAW_GATEWAY_TOKEN=3c98c831391d032e116b1c9a04fc248ca8c7c0970010669f"
