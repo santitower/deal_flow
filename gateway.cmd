@@ -70,10 +70,14 @@ rem ============================================================
 call :free_port
 
 rem ============================================================
-rem  3. Start Integrity Sidecar (Token Rotation)
+rem  3. Start Sidecars (Token Rotation + VRAM Monitor + Switch)
 rem ============================================================
 call :log "Starting Integrity Sidecar..."
 start "" /B powershell.exe -ExecutionPolicy Bypass -File "C:\Users\franc\.openclaw\scripts\integrity-sidecar.ps1"
+call :log "Starting VRAM Sidecar..."
+start "" /B powershell.exe -ExecutionPolicy Bypass -File "C:\Users\franc\.openclaw\scripts\vram-sidecar.ps1"
+call :log "Starting Dead-Man's Switch..."
+start "" /B powershell.exe -ExecutionPolicy Bypass -File "C:\Users\franc\.openclaw\scripts\deadmans-switch.ps1"
 
 rem ============================================================
 rem  4. Launch gateway with retry loop

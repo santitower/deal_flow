@@ -7,7 +7,8 @@
 2. **Gateway health** — Run `openclaw gateway status`. Verify port 18789 is listening.
 3. **Ollama health** — Can you reach `http://127.0.0.1:11434/api/tags`? 
 4. **System Logs** — Check `C:\Users\franc\.openclaw\logs\gateway.log` for recent errors. Do NOT assume the path; it is defined in `TOOLS.md`.
-5. **Memory maintenance** — Review recent `memory/YYYY-MM-DD.md` files. Update `MEMORY.md` if needed.
+5. **Context Check** — Read your current session's `.jsonl` file (path in `sessions.json`). If `totalTokens` > 39,000, trigger **Auto-Compaction** (see `IDENTITY.md`).
+6. **Memory maintenance** — Review recent `memory/YYYY-MM-DD.md` files. Update `MEMORY.md` if needed.
 
 ## Rules
 

@@ -62,3 +62,15 @@ This file documents the specifics of this OpenClaw instance's environment.
 - **Sessions:** `agents/main/sessions/`
 - **Credentials:** `credentials/`
 - **Device identity:** `identity/device.json`
+## Maintenance & Survival
+
+- **System Repair:** `openclaw doctor --repair` (fixes gateway, services, and configs)
+- **Log Review:** Check `logs\gateway.log` for error codes.
+- **Stability Protocol:** If you detect a service failure (gateway exit, OOM), you are authorized to run `openclaw doctor --repair` and `openclaw gateway restart`.
+- **Integrity Sidecar:** `scripts\integrity-sidecar.ps1` rotates the token every 6 hours.
+## Context & Memory
+
+- **Max Context:** 49,152 tokens (48k)
+- **Compaction Threshold:** 39,000 tokens (80%)
+- **Monitoring:** Check the latest `totalTokens` in your active session file in `agents/main/sessions/`. The filename matches your current `sessionId` from `sessions.json`.
+- **Compaction Procedure:** If threshold reached → Summarize state to `memory/YYYY-MM-DD.md` → Notify User → Restart Session.
