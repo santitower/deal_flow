@@ -64,40 +64,42 @@ sequenceDiagram
 
 ## 🧑‍💻 Human Interaction & UI Workflow
 
-While n8n handles the data, **HubSpot** is the single pane of glass for the human team. The architecture specifically decouples underwriting from pure ingestion so that humans can trigger re-calculations asynchronously.
+While n8n handles the data ingestion and math, **HubSpot** is intentionally designed as a streamlined, linear pane of glass for human operators to simply sit down and focus on calling.
 
 ```mermaid
 stateDiagram-v2
-    direction LR
+    direction TB
     
-    state "HubSpot: New Deals Pipeline" as Pipeline {
-        state "New / Needs Review" as NeedsReview
-        state "Underwriting" as Underwriting
-        state "Offers Pending" as Offers
+    state "HubSpot: Deals Board" as Board
+    
+    state "Human Operator" as Human {
+        state "Filter Deals" as Filter
+        state "Call Lead" as Call
+        state "Log Call Outcome" as Log
+        state "Set Automation Queue" as SetAutomation
     }
     
-    state "n8n Webhook Workflow" as Webhook {
-        state "Code Node (Math)" as Math
-        state "Postgres (Audit)" as Audit
+    state "n8n Automation" as n8n {
+        state "Process Follow-up / Drip" as Process
     }
     
-    [*] --> NeedsReview: Automated Ingestion
+    Board --> Filter: Start session (e.g., "Needs Contact")
+    Filter --> Call: Open first Deal
+    Call --> Log: Record result in Custom Property
+    Log --> SetAutomation: Set "Automation Queue" column
+    SetAutomation --> Call: Move to next Deal linearly
     
-    NeedsReview --> Underwriting: Human drags Deal to stage
+    SetAutomation --> Process: Webhook out to n8n
     
-    Underwriting --> Webhook: HubSpot Webhook Trigger
-    
-    Webhook --> Math: Pull latest parameters
-    Math --> Audit: Save new snapshot
-    Audit --> Underwriting: API Patch (Update MAO/ARV fields)
-    
-    Underwriting --> Offers: Human verifies & calls agent
+    Call --> Board: End session / Follow-up later
 ```
 
 ### Key Human Touchpoints:
-1. **Dealing with Low Confidence Extraction:** If OpenClaw or Regex struggles to find a price, the lead lands in the `Needs Review` stage in HubSpot. A human finds the Zillow link (which is paramount and always attached to the Deal), manually enters the price, and moves the stage to `Underwriting`.
-2. **Triggering Re-calc:** Changing a Deal stage to `Underwriting` (or clicking a custom HubSpot button) fires a webhook to n8n, which re-runs the deterministic math node against the newest variables and updates the Deal instantly.
-3. **Outcome Logging:** Humans log call outcomes directly in HubSpot, which can trigger downstream drip campaigns or assignment mapping.
+1. **Linear Calling:** The operator filters the Deals table/board based on daily requirements (e.g., "New Deals in Texas"). From there, they simply move down the list, calling leads one by one.
+2. **Outcome Logging:** After a call, the human updates the `Call Outcome` column/property (e.g., Left VM, No Answer, Connected).
+3. **Triggering the Automation Queue:** The human updates the `Automation Queue` column for that Deal. This keeps them from manually clicking through complex HubSpot stages. Instead, changing this single dropdown fires a webhook to n8n.
+4. **n8n Hand-off:** n8n catches the webhook, reads the `Call Outcome`, and automatically executes the appropriate downstream logic (sending an email, creating an SMS drip, or moving the Deal stage in the background).
+5. **Dealing with Low Confidence Extraction:** If the automated ingestion failed to pull a price, the Zillow link remains the paramount source of truth. The human clicks the link, enters the price, and continues.
 
 ---
 
