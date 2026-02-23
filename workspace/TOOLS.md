@@ -30,7 +30,7 @@ This file documents the specifics of this OpenClaw instance's environment.
 
 | Model | Type | Notes |
 |-------|------|-------|
-| qwen2.5:14b-64k | **Primary** | GPU, 64K context custom Modelfile |
+| qwen2.5:14b-48k | **Primary** | GPU, 48K context custom Modelfile |
 | qwen2.5:3b-cpu | **Fallback** | CPU-only, lightweight |
 | deepseek-r1:14b | Reasoning | Chain-of-thought |
 | phi4:14b | General | Microsoft |
@@ -50,7 +50,7 @@ This file documents the specifics of this OpenClaw instance's environment.
 ## Modelfiles (Custom Ollama Configs)
 
 - `Modelfile.deepseek-r1-14b-cpu` — CPU-optimized deepseek
-- `Modelfile.qwen25-14b-64k` — Extended context qwen2.5
+- `Modelfile.qwen25-14b-48k` — Extended context qwen2.5
 - `Modelfile.qwen25-3b-cpu` — CPU-optimized qwen2.5 3b
 
 ## Key File Locations
