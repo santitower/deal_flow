@@ -57,7 +57,8 @@ This file documents the specifics of this OpenClaw instance's environment.
 
 - **Gateway script:** `gateway.cmd`
 - **Config:** `openclaw.json`
-- **Logs:** `logs/gateway.log`, `logs/config-audit.jsonl`
+- **System Logs:** `C:\Users\franc\.openclaw\logs\gateway.log`
+- **Config Audit:** `C:\Users\franc\.openclaw\logs\config-audit.jsonl`
 - **Sessions:** `agents/main/sessions/`
 - **Credentials:** `credentials/`
 - **Device identity:** `identity/device.json`

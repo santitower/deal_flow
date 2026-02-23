@@ -2,10 +2,10 @@
 
 ## Periodic Checks (rotate through these)
 
-1. **Gateway health** — Is port 18789 listening? If not, note it.
+1. **Gateway health** — Is port 18789 listening? Check via `openclaw gateway status`.
 2. **Ollama health** — Can you reach `http://127.0.0.1:11434/api/tags`? How many models loaded?
-3. **Memory maintenance** — Review recent `memory/YYYY-MM-DD.md` files. Update `MEMORY.md` if needed.
-4. **Task review** — Check `TASKS.md` for anything due today or needing attention.
+3. **System Logs** — Review recent entries in `C:\Users\franc\.openclaw\logs\gateway.log` (or run `openclaw logs`).
+4. **Memory maintenance** — Review recent `memory/YYYY-MM-DD.md` files. Update `MEMORY.md` if needed.
 5. **Session cleanup** — Are there stale sessions older than 7 days?
 
 ## Rules
