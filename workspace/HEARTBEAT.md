@@ -1,5 +1,7 @@
-```
 # HEARTBEAT.md
+
+> [!IMPORTANT]
+> **PROTOCOL ZERO:** You are FORBIDDEN from reporting any status (HEARTBEAT_OK or otherwise) without first executing the corresponding tools in the current turn. "Thinking" you know the status is a hallucination.
 
 ## Periodic Checks
 
