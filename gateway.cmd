@@ -95,7 +95,7 @@ set /a ATTEMPT+=1
 echo.
 call :log "=== Starting OpenClaw Gateway (attempt !ATTEMPT!/%MAX_RETRIES%) ==="
 cd /d "%OPENCLAW_HOME%"
-"C:\Program Files\nodejs\node.exe" C:\Users\franc\AppData\Roaming\npm\node_modules\openclaw\dist\index.js gateway --port %GATEWAY_PORT%
+"C:\Program Files\nodejs\node.exe" C:\Users\franc\AppData\Roaming\npm\node_modules\openclaw\dist\index.js gateway --port %GATEWAY_PORT% >> "%LOGFILE%" 2>&1
 
 rem --- If we reach here, the process exited ---
 set "EXIT_CODE=%ERRORLEVEL%"

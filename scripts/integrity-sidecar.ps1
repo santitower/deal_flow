@@ -3,7 +3,10 @@ param (
     [int]$IntervalSeconds = 21600 # 6 hours
 )
 
-while ($true) {
+function Update-IntegrityToken {
+    param (
+        [string]$Path
+    )
     $token = [guid]::NewGuid().ToString()
     $timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"
     
@@ -15,18 +18,22 @@ while ($true) {
 
 **INSTRUCTION:** 
 Benito, every time you perform a heartbeat or system check, you MUST read this file and cite the TOKEN above. 
-If you cannot read this file, your session is corrupt. 
+If you cannot find or read this file, your session may be compromised. 
 Do NOT assume the token. Read it from the disk every single time.
 "@
 
     try {
-        Set-Content -Path $WorkspacePath -Value $content -Encoding UTF8 -ErrorAction Stop
-        Write-Host "[$timestamp] Integrity token rotated: $token"
+        Set-Content -Path $Path -Value $content -Encoding UTF8 -Force -ErrorAction Stop
+        Write-Host "[$timestamp] Integrity token updated: $token"
     }
     catch {
-        Write-Error "[$timestamp] Failed to rotate token: $($_.Exception.Message)"
+        Write-Error "[$timestamp] Failed to update token: $($_.Exception.Message)"
     }
+}
 
+while ($true) {
+    Update-IntegrityToken -Path $WorkspacePath
+    
     if ($IntervalSeconds -gt 0) {
         Start-Sleep -Seconds $IntervalSeconds
     }
