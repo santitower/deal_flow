@@ -14,6 +14,7 @@ set "MAX_RETRIES=10"
 set "RETRY_DELAY=15"
 set "LOGFILE=C:\Users\franc\.openclaw\logs\gateway.log"
 set "OPENCLAW_HOME=C:\Users\franc\.openclaw"
+set "OPENCLAW_STATE_DIR=C:\Users\franc\.openclaw"
 
 rem --- Ollama optimization env vars ---
 set "OLLAMA_KV_CACHE_TYPE=q8_0"
@@ -69,10 +70,20 @@ rem ============================================================
 call :free_port
 
 rem ============================================================
-rem  3. Launch gateway with retry loop
+rem  3. Start Sidecars (Token Rotation + VRAM Monitor + Switch)
+rem ============================================================
+call :log "Starting Integrity Sidecar..."
+start "" /B powershell.exe -ExecutionPolicy Bypass -File "C:\Users\franc\.openclaw\scripts\integrity-sidecar.ps1"
+call :log "Starting VRAM Sidecar..."
+start "" /B powershell.exe -ExecutionPolicy Bypass -File "C:\Users\franc\.openclaw\scripts\vram-sidecar.ps1"
+call :log "Starting Dead-Man's Switch..."
+start "" /B powershell.exe -ExecutionPolicy Bypass -File "C:\Users\franc\.openclaw\scripts\deadmans-switch.ps1"
+
+rem ============================================================
+rem  4. Launch gateway with retry loop
 rem ============================================================
 set "OPENCLAW_GATEWAY_PORT=%GATEWAY_PORT%"
-set "OPENCLAW_GATEWAY_TOKEN=%OPENCLAW_GATEWAY_TOKEN%"
+set "OPENCLAW_GATEWAY_TOKEN=3c98c831391d032e116b1c9a04fc248ca8c7c0970010669f"
 set "OPENCLAW_SYSTEMD_UNIT=openclaw-gateway.service"
 set "OPENCLAW_SERVICE_MARKER=openclaw"
 set "OPENCLAW_SERVICE_KIND=gateway"
@@ -83,7 +94,8 @@ set "ATTEMPT=0"
 set /a ATTEMPT+=1
 echo.
 call :log "=== Starting OpenClaw Gateway (attempt !ATTEMPT!/%MAX_RETRIES%) ==="
-"C:\Program Files\nodejs\node.exe" C:\Users\franc\AppData\Roaming\npm\node_modules\openclaw\dist\index.js gateway --port %GATEWAY_PORT%
+cd /d "%OPENCLAW_HOME%"
+"C:\Program Files\nodejs\node.exe" C:\Users\franc\AppData\Roaming\npm\node_modules\openclaw\dist\index.js gateway --port %GATEWAY_PORT% >> "%LOGFILE%" 2>&1
 
 rem --- If we reach here, the process exited ---
 set "EXIT_CODE=%ERRORLEVEL%"
