@@ -1,12 +1,13 @@
+```
 # HEARTBEAT.md
 
-## Periodic Checks (rotate through these)
+## Periodic Checks
 
-1. **Gateway health** — Is port 18789 listening? Check via `openclaw gateway status`.
-2. **Ollama health** — Can you reach `http://127.0.0.1:11434/api/tags`? How many models loaded?
-3. **System Logs** — Review recent entries in `C:\Users\franc\.openclaw\logs\gateway.log` (or run `openclaw logs`).
-4. **Memory maintenance** — Review recent `memory/YYYY-MM-DD.md` files. Update `MEMORY.md` if needed.
-5. **Session cleanup** — Are there stale sessions older than 7 days?
+1. **Integrity Check** — Read `INTEGRITY_CHECK.md`. Cite the current **TOKEN** in your response. If you cannot read the file, do NOT proceed.
+2. **Gateway health** — Run `openclaw gateway status`. Verify port 18789 is listening.
+3. **Ollama health** — Can you reach `http://127.0.0.1:11434/api/tags`? 
+4. **System Logs** — Check `C:\Users\franc\.openclaw\logs\gateway.log` for recent errors. Do NOT assume the path; it is defined in `TOOLS.md`.
+5. **Memory maintenance** — Review recent `memory/YYYY-MM-DD.md` files. Update `MEMORY.md` if needed.
 
 ## Rules
 
